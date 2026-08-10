@@ -1,0 +1,39 @@
+# ============================================================================
+# TORRE DE CONTROLE LOGÍSTICA · Etapa 4 — netlify.toml
+# ----------------------------------------------------------------------------
+# Publicação estática + Netlify Functions (camada confiável de autenticação).
+# HTTPS é nativo no Netlify; o cookie de sessão usa o atributo Secure, então
+# jamais trafega por HTTP (Seção 29).
+# ============================================================================
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# /api/* → functions (mesma origem: o cookie HttpOnly SameSite=Strict flui
+# naturalmente, sem CORS e sem expor o endpoint interno nas chamadas do app)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# ── Headers de segurança (Seções 30 e 31) ───────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # CSP SEM 'unsafe-inline' para scripts (viável porque a Etapa 4 removeu
+    # todos os <script> embutidos do index.html → boot.js/boot-fallback.js).
+    # 'unsafe-inline' permanece SOMENTE em style-src: Leaflet e Chart.js
+    # aplicam atributos style dinâmicos — removê-lo quebraria as bibliotecas
+    # atuais (a própria Seção 30 veda regras que quebrem o sistema).
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; connect-src 'self' https://router.project-osrm.org; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+
+# Respostas da API nunca devem ser cacheadas
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store"

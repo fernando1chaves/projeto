@@ -1,0 +1,1515 @@
+/* ============================================================================
+   FOLLOW-UP DE COLETAS POR AGLUTINADOR — style.css
+   ----------------------------------------------------------------------------
+   Estrutura deste arquivo:
+     01. Variáveis de tema (claro / escuro)
+     02. Reset e base
+     03. Topbar (cabeçalho)
+     04. Toolbar (busca, upload, download, tema)
+     05. KPIs
+     06. Barra de filtros e sugestões
+     07. Filtros rápidos (quick filters)
+     08. Abas e painéis
+     09. Cards e tabelas
+     10. Mapa e legendas
+     11. Árvore de decomposição (timeline / SVG)
+     12. Sidebar de aglutinadores (Tab 1)
+     13. Ajustes específicos do modo escuro
+     14. Responsividade
+     15. Rodapé
+     16. Painel Cobranças Status (Tab 2)
+     17. Ajustes da Etapa 3
+     18. Evolução dos Pedidos — rota por fornecedor (Alteração 06)
+   ========================================================================== */
+
+/* ── 01. VARIÁVEIS DE TEMA ────────────────────────────────────────────────── */
+
+:root {
+  --bg:         #eef1f2;
+  --panel:      #ffffff;
+  --ink:        #1c2b2e;
+  --sub:        #5c6b6d;
+  --dark:       #1e2f33;
+  --dark2:      #274247;
+  --teal:       #0f6e68;
+  --teal-light: #3aa79f;
+  --teal-pale:  #d7ece9;
+  --amber:      #e0a13c;
+  --red:        #d1573f;
+  --green:      #2f8f5b;
+  --line:       #e1e6e6;
+  --input-bg:   #ffffff;
+  /* Alteração 1.2 — elevação dos cards. Duas camadas: um contato curto e
+     nítido junto à borda + uma difusa e ampla, que é o que dá a sensação de
+     profundidade sem "sujar" o fundo claro. */
+  --shadow-1:   0 1px 2px rgba(16, 34, 38, .06), 0 4px 12px rgba(16, 34, 38, .07);
+  --shadow-2:   0 2px 6px rgba(16, 34, 38, .09), 0 12px 26px rgba(16, 34, 38, .13);
+}
+
+:root[data-theme="dark"] {
+  --bg:         #12181a;
+  --panel:      #1b2426;
+  --ink:        #e7eeee;
+  --sub:        #9fb0b1;
+  --dark:       #0c1416;
+  --dark2:      #1f3236;
+  --teal:       #3aa79f;
+  --teal-light: #5cc4bb;
+  --teal-pale:  #1f3a38;
+  --amber:      #e0a13c;
+  --red:        #e5715a;
+  --green:      #4bb476;
+  --line:       #2b3638;
+  --input-bg:   #22302f;
+  /* No tema escuro a sombra precisa ser mais densa e mais fechada para
+     continuar legível sobre um fundo já escuro. */
+  --shadow-1:   0 1px 2px rgba(0, 0, 0, .40), 0 4px 14px rgba(0, 0, 0, .42);
+  --shadow-2:   0 2px 8px rgba(0, 0, 0, .48), 0 14px 30px rgba(0, 0, 0, .55);
+}
+
+/* ── 02. RESET E BASE ─────────────────────────────────────────────────────── */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  transition: background .15s, color .15s;
+}
+
+.wrap {
+  /* Alteração 8 (Etapa 3) — maior aproveitamento horizontal das 4 telas:
+     em monitores Full HD e superiores o container cresce até 1800px;
+     em notebooks/tablets, 96vw evita rolagem horizontal e mantém margens leves. */
+  /* Alteração 8 (Etapa 3 — Reestruturação): área útil ainda maior, reduzindo
+     espaços vazios laterais e aproveitando monitores widescreen/ultrawide. */
+  width: 100%;
+  max-width: min(2100px, 98.5vw);
+  margin: 0 auto;
+  padding: 16px clamp(8px, 1vw, 16px) 40px;
+}
+
+/* ── 03. TOPBAR — TORRE DE CONTROLE ───────────────────────────────────────
+   Título executivo à esquerda; no canto superior direito, os 4 módulos
+   principais (abas) alinhados horizontalmente ao lado dos botões de
+   Upload da Planilha e Download Excel. */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  background: var(--dark);
+  color: #fff;
+  border-radius: 10px;
+  padding: 14px 20px;
+  margin-bottom: 14px;
+}
+.topbar h1 { font-size: 19px; margin: 0; font-weight: 800; letter-spacing: 1.2px; }
+
+/* Alteração 9 (Etapa 3) — identidade visual oficial (ILC + John Deere).
+   O topbar é escuro nos dois temas, garantindo contraste da logo ILC (branca)
+   e da John Deere em qualquer modo. Dimensionamento proporcional, sem distorção. */
+.brand-logo { height: 42px; width: auto; object-fit: contain; flex: 0 0 auto; }
+.brand-ilc { margin-right: 4px; }
+.brand-jd { margin-left: 4px; }
+@media (max-width: 900px) { .brand-logo { height: 32px; } }
+/* Etapa 3 · Alteração 01 — identificação da base em caixa alta, com
+   espaçamento de letras e peso semibold: leitura limpa e corporativa. */
+.topbar .sub {
+  font-size: 11.5px;
+  color: #b7c6c8;
+  margin-top: 4px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px 14px;
+}
+.topbar-actions { display: flex; align-items: center; gap: var(--tc-btn-gap); }
+
+/* ── Etapa 3 · Alteração 03 — BOTÕES PADRONIZADOS DA TORRE DE CONTROLE ──
+   Um único componente (.tc-btn) governa TODOS os comandos principais do
+   cabeçalho: os dois módulos e os dois botões de ação. Nenhum deles possui
+   medida definida individualmente — altura, raio, tipografia, espaçamento
+   interno e largura mínima vêm daqui. Para ajustar a barra inteira basta
+   alterar as variáveis abaixo.
+   Desktop: fila única (flex-wrap: nowrap) com larguras equilibradas, pois
+   todos crescem na mesma proporção (flex: 1 1 0). Telas menores: quebra
+   controlada, sem sobreposição e sem redução de tipografia. */
+:root {
+  --tc-btn-h: 40px;          /* mesma altura para todos */
+  --tc-btn-min: 150px;       /* largura mínima comum */
+  --tc-btn-gap: 10px;        /* espaçamento uniforme */
+}
+.topbar .tc-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: var(--tc-btn-gap);
+  /* Sem width:100% — a barra divide a linha com as logos ILC e John
+     Deere; reservar a largura inteira empurraria a logo para baixo. */
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+}
+/* flex-basis 0: a barra nunca reivindica a largura do próprio conteúdo,
+   portanto não é jogada para a linha de baixo — e a logo John Deere
+   permanece alinhada aos botões no canto superior direito. */
+.topbar .topbar-right { flex: 1 1 0; min-width: 0; }
+.topbar .tc-toolbar .tabs { display: flex; gap: var(--tc-btn-gap); margin-bottom: 0; flex: 1 1 auto; min-width: 0; }
+.topbar .tc-toolbar .topbar-actions { flex: 1 1 auto; min-width: 0; }
+/* O seletor é qualificado por .topbar porque as regras genéricas de .tab e
+   .tb-btn aparecem mais adiante neste arquivo; sem isso, elas venceriam por
+   ordem e o componente padronizado não seria aplicado. */
+.topbar .tc-btn {
+  flex: 1 1 0;
+  min-width: var(--tc-btn-min);
+  height: var(--tc-btn-h);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;          /* texto centralizado na vertical */
+  justify-content: center;      /* e na horizontal */
+  gap: 7px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  line-height: 1.12;
+  text-align: center;
+  /* Quando a largura aperta, o rótulo quebra em duas linhas DENTRO da
+     mesma altura padronizada — preserva a legibilidade integral, sem
+     reticências e sem alterar a altura de nenhum botão. */
+  white-space: normal;
+  overflow-wrap: break-word;
+  cursor: pointer;
+}
+.topbar .tc-btn .tc-ico { font-size: 14px; line-height: 1; flex: 0 0 auto; }
+.topbar .tc-btn:focus-visible { outline: 2px solid var(--teal-light); outline-offset: 2px; }
+/* O botão de tema deixa de ter medidas próprias: usa o mesmo componente. */
+.topbar .tc-btn.theme-toggle { padding: 0 14px; font-size: 12px; }
+
+/* Alterações 03 e 15 — a partir daqui os rótulos completos dos quatro
+   comandos não cabem mais na mesma faixa das duas logos (limite medido
+   em ~1440px). A barra passa a
+   ocupar uma linha própria, mas os botões CONTINUAM em uma única fila,
+   com as mesmas dimensões padronizadas e sem truncar texto. */
+@media (max-width: 1439px) {
+  /* A ordem visual é reorganizada para que a barra de comandos ocupe a
+     SEGUNDA linha inteira e as duas logos permaneçam juntas na primeira —
+     evitando uma terceira linha só para a marca. */
+  .topbar .brand-jd { order: 2; margin-left: auto; }
+  .topbar .topbar-right { order: 3; flex: 1 1 100%; justify-content: flex-end; }
+  .topbar .tc-toolbar { width: 100%; }
+}
+
+/* Abas dentro do cabeçalho escuro */
+.topbar .tabs { margin-bottom: 0; flex-wrap: wrap; }
+.topbar .tab {
+  background: var(--dark2);
+  color: #d6e2e3;
+  border-color: rgba(255,255,255,.14);
+}
+.topbar .tab:hover { border-color: var(--teal-light); }
+.topbar .tab.active { background: var(--teal); color: #fff; border-color: var(--teal); }
+.topbar .tab:not(.active) .num { background: rgba(255,255,255,.14); color: #fff; }
+
+/* Botões dentro do cabeçalho escuro */
+.topbar .tb-btn {
+  background: var(--dark2);
+  color: #fff;
+  border-color: rgba(255,255,255,.18);
+}
+.topbar .tb-btn:hover { background: var(--teal); border-color: var(--teal); }
+
+/* ── 04. BOTÕES DE AÇÃO E STATUS DE IMPORTAÇÃO ────────────────────────── */
+
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s;
+}
+.tb-btn.theme-toggle { padding: 0 12px; font-size: 16px; }
+
+/* input de arquivo nativo fica oculto — o label estilizado faz o papel de botão */
+#uploadInput { display: none; }
+
+.tb-status {
+  width: 100%;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: -6px 0 10px;
+  display: none;
+}
+.tb-status.ok  { display: block; background: #d7ece9; color: #0f6e68; }
+.tb-status.err { display: block; background: #f7dbd4; color: #a5382a; }
+
+.tb-spinner {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border: 2px solid rgba(0,0,0,.15);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: tbspin .7s linear infinite;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+@keyframes tbspin { to { transform: rotate(360deg); } }
+
+.search-noresult { padding: 14px; text-align: center; color: var(--sub); font-size: 12.5px; }
+
+/* ── 05. KPIs GLOBAIS (cards-filtro) ──────────────────────────────────────
+   Etapa 3 (revisão 2) · Alterações 08 a 19 — REESTRUTURAÇÃO DOS KPIs.
+   Reutilizam o componente .cob-kpi; a classe .kpis-top governa a grade dos
+   11 indicadores. .clickable/.active dão o comportamento de filtro (Alteração
+   18 — reatividade aos filtros preservada, nada mudou no cálculo).
+
+   Estrutura vertical por card (Alteração 11): ícone → título → valor em
+   destaque → percentual, todos centralizados. Os 11 cards são rigorosamente
+   idênticos em largura e altura (Alteração 10) — nenhum título mais longo
+   ("FIN. DENTRO DO PRAZO", "NÃO CONFORMIDADE") deforma o card: o rótulo
+   sempre reserva o mesmo espaço vertical (2 linhas), então o valor e o
+   percentual ficam alinhados na mesma altura em todos os cards.
+
+   Desktop: fila única com as 11 colunas (Alteração 09/15) via CSS Grid
+   (repeat(11, minmax(0,1fr))). Tablet: quebra controlada em 2 linhas
+   (Alteração 16). Mobile: grade adaptável, 2 colunas e 1 coluna nas telas
+   mais estreitas — legibilidade acima da exigência de fila única. */
+
+/* #kpis (ID) é usado propositalmente nesta declaração de colunas: garante
+   precedência sobre .cob-kpis (mesma especificidade de classe de .kpis-top,
+   porém definida depois no arquivo), sem depender da ordem das regras. */
+#kpis.kpis-top {
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.kpis-top .cob-kpi {
+  min-width: 0;
+  min-height: 132px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 14px 8px 12px;
+  border-left: none;
+  border-top: 3px solid var(--kc, var(--teal));
+}
+/* O ícone deixa de ficar ao lado do texto (layout horizontal antigo) e passa
+   a ficar centralizado no topo do card. */
+.kpis-top .cob-kpi > .cob-kpi-ico { flex: 0 0 30px; width: 30px; height: 30px; font-size: 15px; }
+.kpis-top .cob-kpi > div:not(.cob-kpi-ico) {
+  min-width: 0; width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.kpis-top .cob-kpi-lbl {
+  overflow-wrap: break-word;   /* quebra por palavra — nunca letra a letra */
+  line-height: 1.25;
+  min-height: 25px;            /* 2 linhas de 10px — alinhamento uniforme */
+  display: flex; align-items: center; justify-content: center;
+}
+/* Alteração 11 — o valor principal é o elemento de maior destaque do card. */
+.kpis-top .cob-kpi-val { font-variant-numeric: tabular-nums; font-size: 21px; }
+.kpis-top .cob-kpi-pct { font-variant-numeric: tabular-nums; }
+
+.cob-kpi.clickable {
+  cursor: pointer;
+  outline: 2px solid transparent;
+  transition: transform .12s ease, box-shadow .12s ease, outline-color .12s ease;
+}
+.cob-kpi.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0,0,0,.25);
+}
+.cob-kpi.active {
+  outline: 2px solid var(--kc);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kc) 30%, transparent);
+}
+
+.t1-filterbar { margin-bottom: 16px; }
+
+/* ── 08. ABAS E PAINÉIS ───────────────────────────────────────────────────── */
+
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.tab {
+  padding: 10px 18px;
+  background: var(--panel);
+  border-radius: 8px 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sub);
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-bottom: none;
+}
+.tab.active { background: var(--teal); color: #fff; border-color: var(--teal); }
+.tab .num {
+  display: inline-block;
+  background: rgba(255,255,255,.25);
+  border-radius: 50%;
+  width: 18px; height: 18px; line-height: 18px;
+  font-size: 10px;
+  margin-right: 6px;
+}
+.tab:not(.active) .num { background: var(--teal-pale); color: var(--teal); }
+
+.panel {
+  background: var(--panel);
+  border-radius: 0 8px 8px 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  display: none;
+}
+.panel.active { display: block; }
+.panel h2 { font-size: 15px; margin: 0 0 4px; color: var(--ink); }
+.panel .desc { font-size: 12px; color: var(--sub); margin-bottom: 16px; }
+
+
+/* ── 09. CARDS E TABELAS ──────────────────────────────────────────────────── */
+
+/* Alteração 1.2 — elevação padronizada. A sombra é aplicada no componente
+   .card (e não em cada gráfico), garantindo o mesmo tratamento em toda a
+   aplicação sem duplicar regra. A superfície opaca é o que sustenta a
+   sombra: sem ela o card "flutuaria" sobre o fundo sem se destacar. */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 14px;
+  box-shadow: var(--shadow-1);
+  transition: box-shadow .16s ease;
+}
+/* Alteração 1.5 — realce discreto ao passar o mouse nos cards de gráfico
+   (são interativos: clique nas fatias/barras filtra o dashboard). Sem
+   transform, para não provocar reamostragem do canvas do Chart.js. */
+.cob-chart-card:hover { box-shadow: var(--shadow-2); }
+
+/* Alteração 1.5 — padrão visual único dos cards da seção: mesma borda, mesmo
+   raio, mesma sombra e mesmo respiro interno. Herdados de .card, declarados
+   aqui apenas como contrato explícito da seção (nenhum valor é duplicado). */
+.cob-charts > .card { border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+.card h3 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--sub); margin: 0 0 10px; }
+.card h3 small { text-transform: none; font-weight: 400; color: var(--sub); }
+
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th {
+  text-align: left;
+  padding: 8px;
+  background: var(--teal-pale);
+  color: var(--teal);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+}
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); }
+tr:hover td { background: color-mix(in srgb, var(--teal-pale) 40%, var(--panel)); }
+
+.badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; color: #fff; display: inline-block; }
+.b-naoiniciado { background: #9aa5a6; }
+.b-iniciado    { background: var(--amber); }
+.b-finalizado  { background: var(--teal); }
+
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+
+.scroll { max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+.scroll.sm { max-height: 280px; }
+
+.atraso-pos  { color: var(--red);   font-weight: 700; }
+.atraso-neg  { color: var(--green); font-weight: 700; }
+.atraso-zero { color: var(--sub); }
+
+.empty-hint {
+  padding: 30px;
+  text-align: center;
+  color: var(--sub);
+  font-size: 13px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
+/* ── 10. MAPA E LEGENDAS ──────────────────────────────────────────────────── */
+
+#map { height: 480px; border-radius: 8px; }
+.map-card { margin-bottom: 16px; }
+
+.legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--sub); margin-top: 8px; flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend .sw { width: 14px; height: 8px; border-radius: 2px; display: inline-block; }
+
+.tl-map-label {
+  background: #1e2f33;
+  color: #fff;
+  border: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 5px;
+  text-align: center;
+  line-height: 1.5;
+}
+.tl-map-label::before { border-top-color: #1e2f33; }
+
+/* Alteração 06 · seção 29 — a tabela de trechos da rota tem 6 colunas e não
+   cabe em telas estreitas. A rolagem passa a ficar contida no próprio
+   componente, eliminando o estouro horizontal da página no celular. */
+.route-wrap { margin-top: 10px; overflow-x: auto; }
+.route-table { min-width: 520px; }
+.route-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.route-table th {
+  text-align: left;
+  padding: 6px;
+  color: var(--sub);
+  font-weight: 700;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  position: static;
+}
+.route-table td { padding: 6px; border-bottom: 1px solid var(--line); }
+.route-table tfoot td { font-weight: 800; color: var(--ink); border-top: 2px solid var(--line); border-bottom: none; }
+.route-loading { padding: 8px 4px; font-size: 12px; color: var(--sub); }
+.route-num div {
+  background: #1f5fb0;
+  color: #fff;
+  border-radius: 50%;
+  width: 22px; height: 22px; line-height: 22px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+.route-leg-label div {
+  background: #fff;
+  color: #1f5fb0;
+  border: 1.5px solid #1f5fb0;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  text-align: center;
+}
+.route-leg-label div span { display: block; font-size: 9px; font-weight: 600; color: #5c6b6d; }
+
+/* ── 11. ÁRVORE DE DECOMPOSIÇÃO (TIMELINE / SVG) ──────────────────────────── */
+
+.tl-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px 14px 10px;
+  margin-bottom: 16px;
+  background: #fbfcfc;
+}
+.tl-head { padding: 0 8px 10px; }
+.tl-title { font-size: 16px; font-weight: 800; color: var(--ink); }
+.tl-sub { font-size: 11.5px; color: var(--sub); margin-top: 2px; }
+.tl-scroll { overflow-x: auto; padding: 6px 0 4px; }
+.tl-svg { display: block; }
+.tl-flag { fill: #1f5fb0; }
+.tl-flag-text { fill: #fff; font-size: 12px; font-weight: 700; }
+.tl-scroll-v { overflow-y: auto; overflow-x: auto; max-height: 640px; }
+
+/* ── 12. SIDEBAR DE AGLUTINADORES (TAB 1) ─────────────────────────────────── */
+
+.t1-layout { display: flex; gap: 16px; align-items: flex-start; }
+.t1-sidebar { flex: 0 0 240px; position: sticky; top: 12px; }
+.t1-main { flex: 1 1 auto; min-width: 0; }
+
+.t1-sidebar-count { font-size: 11px; color: var(--sub); margin-bottom: 6px; }
+
+.t1-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  /* Alteração 1.3 — exibe ~11 aglutinadores por vez; os demais ficam na rolagem */
+  max-height: 528px;
+  overflow-y: auto;
+  background: var(--panel);
+}
+.t1-item {
+  padding: 8px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.t1-item:last-child { border-bottom: none; }
+.t1-item:hover { background: var(--teal-pale); }
+.t1-item.active { background: var(--teal); }
+.t1-item.active .t1-item-code { color: #fff; }
+.t1-item.active .t1-item-sub { color: #d7ece9; }
+.t1-item-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+.t1-item-body { min-width: 0; }
+.t1-item-code { font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t1-item-sub { font-size: 10px; color: var(--sub); }
+.t1-item-empty { padding: 16px 10px; font-size: 11.5px; color: var(--sub); text-align: center; }
+
+/* ── 13. AJUSTES ESPECÍFICOS DO MODO ESCURO ───────────────────────────────── */
+
+:root[data-theme="dark"] .tl-card { background: #182123; }
+:root[data-theme="dark"] .tb-status.ok  { background: #183531; color: #5cc4bb; }
+:root[data-theme="dark"] .tb-status.err { background: #3a2420; color: #e5715a; }
+:root[data-theme="dark"] .tb-spinner { border-color: rgba(255,255,255,.15); border-top-color: var(--teal); }
+
+/* ── 14. RESPONSIVIDADE ───────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  /* align-items:flex-start herdado do desktop faria os filhos assumirem a
+     largura de CONTEúdo ao virar coluna (eixo cruzado = horizontal),
+     gerando rolagem horizontal da página. Em coluna eles devem esticar. */
+  .t1-layout { flex-direction: column; align-items: stretch; }
+  .t1-sidebar { position: static; flex: 1 1 auto; width: 100%; }
+  .t1-list { max-height: 260px; }
+  .topbar-right { margin-left: 0; justify-content: flex-start; }
+  /* Alterações 03 e 15 — abaixo do desktop a fila única quebra de forma
+     controlada: os botões mantêm altura, proporção e espaçamento, dividem a
+     linha em pares e nunca se sobrepõem nem perdem legibilidade. */
+  /* Abaixo do desktop a barra volta a ocupar a linha inteira e quebra em
+     pares: a restrição de flex-basis 0 só faz sentido enquanto os botões
+     dividem a faixa com as logos. */
+  .topbar .topbar-right { flex: 1 1 100%; }
+  .topbar .tc-toolbar { flex-wrap: wrap; justify-content: flex-start; }
+  .topbar .tc-toolbar .tabs,
+  .topbar .tc-toolbar .topbar-actions { flex: 1 1 300px; min-width: 0; }
+  .topbar .tc-btn { flex: 1 1 130px; min-width: 130px; }
+}
+
+/* ── 15. RODAPÉ ───────────────────────────────────────────────────────────── */
+
+footer { text-align: center; color: var(--sub); font-size: 11px; margin-top: 20px; }
+/* ── 16. PAINEL COBRANÇAS STATUS (Tab 2) ─────────────────────────────────────
+   Novo painel executivo: filtros inteligentes, KPIs, gráficos, ranking e
+   tabela detalhada. Usa as mesmas variáveis de tema das seções anteriores. */
+
+.cob-header { margin-bottom: 14px; }
+
+/* Barra de filtros */
+.cob-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  align-items: flex-end;
+  background: color-mix(in srgb, var(--teal-pale) 30%, var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.cob-filters-left, .cob-filters-center {
+  display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end;
+}
+.cob-filters-center { margin-left: auto; }
+.cob-field { display: flex; flex-direction: column; gap: 4px; min-width: 170px; }
+.cob-field > label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--sub);
+}
+
+/* Autocomplete (Pedidos / Fornecedor) */
+.cob-autocomplete { position: relative; }
+.cob-ac-input { position: relative; display: flex; }
+.cob-ac-input input {
+  width: 100%; height: 36px; padding: 0 30px 0 10px;
+  border: 1px solid var(--line); border-radius: 8px;
+  font-size: 13px; background: var(--input-bg); color: var(--ink);
+}
+.cob-ac-input input:focus { outline: 2px solid var(--teal-light); outline-offset: -1px; }
+.cob-ac-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  cursor: pointer; color: var(--sub); font-size: 12px; display: none; padding: 4px;
+}
+.cob-ac-list {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  max-height: 240px; overflow: auto; z-index: 60;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.18); font-size: 12.5px;
+}
+.cob-ac-list div { padding: 7px 10px; cursor: pointer; }
+.cob-ac-list div:hover { background: color-mix(in srgb, var(--teal-pale) 55%, var(--panel)); }
+.cob-ac-list .cob-ac-empty { color: var(--sub); cursor: default; }
+
+/* Botão Relatório de Cobranças */
+.cob-report-btn {
+  height: 36px; padding: 0 16px; border: none; border-radius: 8px;
+  background: var(--teal); color: #fff; font-size: 13px; font-weight: 700;
+  cursor: pointer; letter-spacing: .2px; white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
+}
+.cob-report-btn:hover { background: var(--teal-light); }
+.cob-clear-all {
+  height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--sub); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.cob-clear-all:hover { color: var(--red); border-color: var(--red); }
+
+/* Multi-select */
+.ms { position: relative; }
+.ms-btn {
+  width: 100%; min-width: 170px; height: 36px; padding: 0 30px 0 10px;
+  border: 1px solid var(--line); border-radius: 8px; text-align: left;
+  background: var(--input-bg); color: var(--ink); font-size: 13px; cursor: pointer;
+  position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ms-btn::after {
+  content: '▾'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--sub); font-size: 11px;
+}
+.ms-btn .ms-count {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px;
+  background: var(--teal); color: #fff; font-size: 10.5px; font-weight: 700;
+}
+.ms.open .ms-btn { outline: 2px solid var(--teal-light); outline-offset: -1px; }
+.ms-drop {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
+  min-width: 250px; max-width: 330px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.2); padding: 10px;
+}
+.ms.open .ms-drop { display: block; }
+.ms-search {
+  width: 100%; height: 32px; padding: 0 10px; margin-bottom: 8px;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--input-bg); color: var(--ink); font-size: 12.5px;
+}
+.ms-actions { display: flex; gap: 8px; margin-bottom: 8px; }
+.ms-actions button {
+  flex: 1; height: 28px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--teal); font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.ms-actions button:hover { background: color-mix(in srgb, var(--teal-pale) 55%, var(--panel)); }
+.ms-range { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.ms-range input[type=date] {
+  flex: 1; min-width: 108px; height: 28px; padding: 0 6px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--input-bg); color: var(--ink); font-size: 11.5px;
+}
+.ms-range button {
+  height: 28px; padding: 0 10px; border: none; border-radius: 6px;
+  background: var(--teal); color: #fff; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.ms-list { max-height: 220px; overflow: auto; }
+.ms-list label {
+  display: flex; align-items: center; gap: 8px; padding: 6px 6px;
+  border-radius: 6px; font-size: 12.5px; cursor: pointer; color: var(--ink);
+}
+.ms-list label:hover { background: color-mix(in srgb, var(--teal-pale) 45%, var(--panel)); }
+.ms-list input[type=checkbox] { accent-color: var(--teal); }
+.ms-empty { color: var(--sub); font-size: 12px; padding: 6px; }
+
+/* KPIs do painel */
+.cob-kpis {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 12px;
+}
+.cob-kpi {
+  background: var(--dark); color: #fff; border-radius: 10px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px; border-left: 4px solid var(--kc, var(--teal));
+  cursor: default;
+}
+.cob-kpi .cob-kpi-ico {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  background: color-mix(in srgb, var(--kc) 25%, transparent);
+}
+.cob-kpi .cob-kpi-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #b7c6c8; }
+.cob-kpi .cob-kpi-val { font-size: 22px; font-weight: 800; line-height: 1.1; }
+.cob-kpi .cob-kpi-pct { font-size: 11px; color: #9fb0b1; font-weight: 600; }
+
+/* Faixa tempo médio / maior atraso */
+.cob-strip {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  background: var(--dark2); color: #fff; border-radius: 10px;
+  padding: 10px 16px; margin-bottom: 14px;
+}
+.cob-strip-item { display: flex; align-items: center; gap: 8px; }
+.cob-strip-ico { font-size: 15px; }
+.cob-strip-lbl { font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; color: #b7c6c8; }
+.cob-strip-val { font-size: 18px; font-weight: 800; }
+.cob-strip-val.red { color: #ff8a70; }
+.cob-strip-sub { font-size: 11.5px; color: #9fb0b1; }
+.cob-strip-sep { width: 1px; height: 24px; background: rgba(255,255,255,.18); }
+
+/* ── Alteração 1.1 / 1.2 / 1.3 — grade da área de gráficos ────────────────
+   Quatro cards em grid simétrico de 2 colunas × 2 linhas:
+
+     ┌─────────────────────┐ ┌─────────────────────┐ ┌──────────┐
+     │ Performance         │ │ Status geral        │ │          │
+     └─────────────────────┘ └─────────────────────┘ │ Ranking  │
+     ┌─────────────────────┐ ┌─────────────────────┐ │ (coluna  │
+     │ Distribuição Planta │ │ Distribuição Modal  │ │  alta)   │
+     └─────────────────────┘ └─────────────────────┘ └──────────┘
+
+   As duas colunas de gráficos são idênticas (1fr cada), o que garante
+   automaticamente a mesma largura, o alinhamento vertical entre as linhas e
+   o espaçamento uniforme exigidos — sem largura fixa por card, que quebraria
+   em outras resoluções.
+
+   A redução de largura (1.1 e 1.3) vem de duas frentes:
+     · a coluna do Ranking (320px) sai da disputa por espaço fluido;
+     · --chart-col-max limita cada card em telas grandes, evitando que os
+       gráficos estiquem além de uma largura de leitura confortável.
+   O excedente em telas muito largas é distribuído nas laterais do bloco
+   (justify-content: center), preservando a simetria do 2×2. */
+.cob-charts {
+  --chart-col-max: 720px;                /* largura máxima de cada card */
+  --rank-col: 320px;                     /* Alteração 1.4 — dimensão preservada */
+  display: grid;
+  grid-template-columns:
+    minmax(0, var(--chart-col-max)) minmax(0, var(--chart-col-max))
+    minmax(var(--rank-col), 1fr);
+  grid-template-areas:
+    "perf   status ranking"
+    "planta modal  ranking";
+  /* Alteração 1.6 — alturas DEFINIDAS por linha.
+     Com linhas `auto`, o card do Ranking (que cruza as duas) impunha sua
+     altura de max-content às linhas e esticava os quatro gráficos, criando
+     área vazia embaixo de cada um. Com altura definida, quem dimensiona a
+     linha é a linha — o Ranking apenas a ocupa e rola internamente. */
+  grid-template-rows: var(--row-1) var(--row-2);
+  --row-1: 400px;                        /* Performance · Status geral */
+  --row-2: 320px;                        /* Planta · Modal */
+  gap: 12px; margin-bottom: 14px;
+  align-items: stretch;
+}
+.cob-area-status  { grid-area: status; }
+.cob-area-perf    { grid-area: perf; }
+.cob-area-ranking { grid-area: ranking; }
+.cob-area-planta  { grid-area: planta; }
+.cob-area-modal   { grid-area: modal; }
+/* Alteração 1.6 — o card é um contêiner flexível de altura conhecida: o
+   cabeçalho ocupa o que precisa e o corpo do gráfico consome TODO o restante.
+   `min-height: 0` é obrigatório para que o corpo possa encolher dentro do
+   flex; `overflow: hidden` garante que nada vaze da caixa arredondada. */
+.cob-chart-card {
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0; overflow: hidden;
+}
+.cob-chart-card > h3 { flex: 0 0 auto; }
+
+/* Corpo do gráfico: é este elemento que o Chart.js mede para se
+   redimensionar. Precisa de `position: relative` (âncora do canvas
+   responsivo) e de `min-height: 0` (permite encolher no flex). */
+.cob-chart-body { flex: 1 1 0; min-height: 0; position: relative; }
+.cob-chart-body > canvas { position: absolute; inset: 0; }
+
+/* Alteração 1.6 — o canvas de Performance não tem mais teto de altura: ele
+   acompanha .cob-chart-body, que por sua vez preenche a linha do grid. Era o
+   `max-height` que deixava a faixa vazia embaixo das barras. */
+
+/* Alteração 1.1 — o donut de Status continua sendo o principal da seção e
+   permanece maior que os de Planta/Modal, porém agora dentro de um card de
+   largura reduzida. O conteúdo é centralizado verticalmente para acompanhar
+   a altura do card de Performance, mantendo o alinhamento horizontal entre
+   os dois cards da primeira linha. */
+.cob-area-status .cob-donut-row { justify-content: center; height: 100%; }
+.cob-area-status .cob-donut-wrap { max-width: min(300px, 45%); }
+.cob-area-status .cob-donut-total { font-size: 26px; }
+.cob-area-status .cob-donut-legend { flex: 0 1 auto; }
+
+/* Alteração 5 — indicador da seleção ativa feita por clique nos gráficos */
+.cob-chart-chip {
+  display: none; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  background: color-mix(in srgb, var(--teal) 16%, var(--panel));
+  color: var(--teal); border: 1px solid color-mix(in srgb, var(--teal) 45%, var(--panel));
+}
+.cob-chart-chip.on { display: inline-block; }
+
+/* Alteração 1.6 — selo de identificação no canto superior direito do card.
+   Posicionado em absoluto para não interferir na quebra de linha do título,
+   do subtítulo e do chip de filtro. Decorativo: marcado como aria-hidden e
+   fora do fluxo de leitura de tecnologias assistivas. */
+.cob-chart-card > h3 { position: relative; padding-right: 42px; }
+.cob-chart-ico {
+  position: absolute; top: -2px; right: 0;
+  width: 30px; height: 30px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1; user-select: none;
+  background: color-mix(in srgb, var(--teal) 14%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--teal) 28%, var(--panel));
+}
+.cob-chart-chip:hover { background: color-mix(in srgb, var(--teal) 28%, var(--panel)); }
+:root[data-theme="dark"] .cob-chart-chip { color: #5cc4bb; }
+.cob-donut-wrap { position: relative; width: 100%; max-width: 230px; margin: 4px auto 8px; }
+
+/* Alteração 4 (Etapa 3) — Planta e Modal mais compactos e elegantes:
+   rosca reduzida à esquerda e legenda ocupando o espaço restante. */
+/* Alteração 1.6 — a linha rosca+legenda ocupa toda a altura útil do card e
+   centraliza o conteúdo verticalmente: sem faixa vazia embaixo. */
+.cob-donut-row {
+  display: flex; align-items: center; gap: 16px;
+  min-width: 0; flex: 1 1 0; min-height: 0;
+}
+/* Se a legenda tiver mais itens do que a altura comporta, ela rola — com a
+   mesma barra oculta do Ranking, para não quebrar o card. */
+.cob-donut-row .cob-donut-legend {
+  max-height: 100%; overflow-y: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.cob-donut-row .cob-donut-legend::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* Alteração 1.6 — a rosca cresce para ocupar a altura útil do card. Com
+   165px sobrava uma faixa vazia; o `min()` mantém a proporção com a legenda
+   em cards estreitos (nunca passa de 45% da largura disponível). */
+.cob-donut-row .cob-donut-wrap {
+  max-width: min(240px, 45%); margin: 2px 0; flex: 0 1 auto; width: 100%;
+}
+.cob-donut-row .cob-donut-total { font-size: 27px; }
+.cob-donut-row .cob-donut-legend { flex: 1; min-width: 0; }
+.cob-donut-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; pointer-events: none;
+}
+.cob-donut-total { font-size: 26px; font-weight: 800; color: var(--ink); }
+.cob-donut-lbl { font-size: 9.5px; letter-spacing: 1px; color: var(--sub); font-weight: 700; }
+.cob-donut-legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.cob-donut-legend .dl-row { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+.cob-donut-legend .dl-sw { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.cob-donut-legend .dl-val { margin-left: auto; font-weight: 700; }
+
+/* Etapa 3 · Alteração 03.1 — linhas especiais da legenda do Status geral.
+   .dl-total    → 1ª linha: Total de Pedidos, a base 100% do gráfico.
+   .dl-restante → porção do anel fora das quatro categorias oficiais; discreta,
+                  para não competir visualmente com as categorias. */
+.cob-donut-legend .dl-total {
+  font-weight: 800;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.cob-donut-legend .dl-restante { opacity: .62; font-style: italic; cursor: help; }
+
+/* Ranking de transportadoras */
+.cob-ranking { display: flex; flex-direction: column; gap: 8px; }
+.cob-rank-row {
+  display: grid; grid-template-columns: 22px 1fr auto; align-items: center;
+  gap: 8px; padding: 7px 9px; border-radius: 8px;
+  border: 1px solid var(--line); position: relative; overflow: hidden;
+  cursor: pointer;                                   /* Alteração 5 — linha clicável */
+  transition: border-color .12s, box-shadow .12s;
+  user-select: none;
+}
+.cob-rank-row:hover { border-color: var(--teal-light); }
+.cob-rank-row.active {
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 1px var(--teal);
+  background: color-mix(in srgb, var(--teal) 8%, var(--panel));
+}
+/* Alteração 1.4 (Etapa 3) — Top 6 sempre visível; a rolagem interna atinge
+   somente as transportadoras da 7ª posição em diante. */
+.cob-rank-top { display: flex; flex-direction: column; gap: 8px; flex: 0 0 auto; }
+.cob-rank-divider {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .4px;
+  color: var(--sub); text-transform: uppercase;
+  margin: 4px 0 0; padding-top: 6px; border-top: 1px dashed var(--line);
+  flex: 0 0 auto;
+}
+/* Alteração 1.4 — rolagem plenamente funcional (roda do mouse, touchpad,
+   gesto de toque e teclado) porém visualmente invisível. A barra é suprimida
+   nos três motores; `overflow-y: auto` é mantido justamente para que a área
+   continue sendo um contêiner rolável nativo — nenhum listener de scroll é
+   adicionado, de modo que o desempenho não depende do número de registros. */
+.cob-rank-more {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 232px; overflow-y: auto;
+  padding: 2px 2px 2px 2px; margin-top: 6px;
+  overscroll-behavior: contain;          /* não propaga a rolagem para a página */
+  scrollbar-width: none;                 /* Firefox */
+  -ms-overflow-style: none;              /* Edge legado / IE */
+}
+/* Alteração 1.6 — no layout de coluna alta o Ranking ocupa as duas linhas,
+   cuja altura agora é DEFINIDA. Por isso `flex-basis: 0`: a lista não pede
+   mais a altura de todos os registros (era isso que inflava as linhas do
+   grid), apenas ocupa o espaço que sobra e rola dentro dele. */
+@media (min-width: 1101px) {
+  .cob-area-ranking .cob-ranking { flex: 1 1 0; min-height: 0; }
+  .cob-area-ranking .cob-rank-more { flex: 1 1 0; min-height: 0; max-height: none; }
+}
+/* Chromium / Safari — a pseudo-classe precisa de largura zero E display:none:
+   apenas um dos dois deixa resquício de trilha em algumas versões. */
+.cob-rank-more::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.cob-rank-row .cr-bar {
+  position: absolute; inset: 0; width: var(--w, 0%);
+  background: color-mix(in srgb, var(--red) 12%, transparent); z-index: 0;
+}
+.cob-rank-row > * { position: relative; z-index: 1; }
+.cob-rank-pos { font-size: 12px; font-weight: 800; color: var(--sub); }
+.cob-rank-row.top1 .cob-rank-pos { color: var(--red); }
+.cob-rank-name { font-size: 12px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cob-rank-sub { font-size: 10.5px; color: var(--sub); font-weight: 400; }
+.cob-rank-count {
+  background: var(--red); color: #fff; font-size: 11px; font-weight: 800;
+  padding: 2px 9px; border-radius: 10px; white-space: nowrap;
+}
+.cob-rank-empty { color: var(--sub); font-size: 12px; }
+
+/* Tabela detalhada */
+.cob-table-card { background: var(--panel); }
+.cob-table-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.cob-table-head h3 { margin: 0; }
+.cob-table-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cob-table-tools input {
+  height: 32px; width: 220px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--input-bg); color: var(--ink); font-size: 12.5px;
+}
+.cob-pager { display: flex; align-items: center; gap: 6px; }
+.cob-pager button {
+  width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--ink); font-size: 14px; cursor: pointer; line-height: 1;
+}
+.cob-pager button:disabled { opacity: .35; cursor: default; }
+.cob-pager span { font-size: 12px; color: var(--sub); min-width: 52px; text-align: center; }
+
+#cobTable th { cursor: pointer; user-select: none; white-space: nowrap; }
+#cobTable th.sorted-asc::after { content: ' ▲'; font-size: 9px; }
+#cobTable th.sorted-desc::after { content: ' ▼'; font-size: 9px; }
+#cobTable td { white-space: nowrap; }
+
+.cob-badge {
+  display: inline-block; padding: 2px 9px; border-radius: 10px;
+  font-size: 11px; font-weight: 700; line-height: 1.5;
+}
+.cob-badge.ok  { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+.cob-badge.bad { background: color-mix(in srgb, var(--red) 16%, transparent);  color: var(--red); }
+.cob-badge.na  { background: color-mix(in srgb, var(--sub) 14%, transparent);  color: var(--sub); }
+
+.cob-table-foot { font-size: 11.5px; color: var(--sub); margin-top: 8px; }
+
+/* Modo escuro: KPIs já são escuros; ajustar contraste dos cartões */
+:root[data-theme="dark"] .cob-kpi { background: #101a1c; }
+:root[data-theme="dark"] .cob-strip { background: #14262a; }
+:root[data-theme="dark"] .cob-filterbar { background: color-mix(in srgb, var(--teal-pale) 45%, var(--panel)); }
+
+/* Responsividade do painel */
+/* Ultrawide — o excedente vai para o Ranking (nomes longos deixam de truncar)
+   e um pouco para os cards, que continuam limitados por --chart-col-max. O
+   grid permanece 2×2 e centralizado. */
+@media (min-width: 1900px) {
+  .cob-charts { --chart-col-max: 780px; --rank-col: 380px; --row-1: 450px; --row-2: 360px; }
+}
+
+
+/* Notebook / Full HD reduzido — o 2×2 é mantido; as colunas passam a ser
+   totalmente fluidas (o limite de largura deixa de atuar) e o Ranking encolhe
+   para 290px, ainda como coluna alta à direita. */
+@media (max-width: 1500px) {
+  .cob-charts { --chart-col-max: 100%; --rank-col: 290px; --row-1: 390px; --row-2: 310px; }
+  .cob-area-status .cob-donut-wrap { max-width: 190px; }
+}
+
+
+/* Etapa 3 (revisão 2) · Alterações 09, 15 e 16 — a fila única de 11 colunas
+   é preservada até aqui (cobre Full HD, resoluções superiores e notebooks
+   com resolução reduzida, conforme os cenários de teste). Abaixo de 1200px
+   já não sobra espaço horizontal para 11 colunas legíveis: quebra
+   controlada em 2 linhas (6 + 5), sem rolagem horizontal. */
+@media (max-width: 1200px) {
+  #kpis.kpis-top { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+/* Tablet em paisagem — o 2×2 dos gráficos é preservado; o Ranking deixa de
+   ser coluna alta e passa a ocupar a linha inteira abaixo, com altura de
+   rolagem controlada. */
+@media (max-width: 1100px) {
+  /* O Ranking deixa de cruzar linhas: as duas primeiras continuam com altura
+     definida e a terceira (Ranking) volta a ser dimensionada pelo conteúdo. */
+  .cob-charts {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "perf    status"
+      "planta  modal"
+      "ranking ranking";
+    grid-template-rows: var(--row-1) var(--row-2) auto;
+    --row-1: 380px; --row-2: 300px;
+  }
+  .cob-area-status .cob-donut-wrap { max-width: 200px; }
+}
+/* Tablet (≤900px): coluna única, sem sobreposição nem corte de legendas. */
+@media (max-width: 900px) {
+  /* Coluna única: cada card recebe a própria altura definida; o Ranking
+     volta a ser dimensionado pelo conteúdo. */
+  .cob-charts {
+    grid-template-columns: 1fr;
+    grid-template-areas: "perf" "status" "planta" "modal" "ranking";
+    grid-template-rows: var(--row-1) var(--row-2) var(--row-2) var(--row-2) auto;
+    --row-1: 360px; --row-2: 290px;
+  }
+  .cob-area-status .cob-donut-wrap { max-width: 210px; }
+}
+@media (max-width: 900px) {
+  /* Alteração 16 — mobile: grade adaptável, 2 colunas quando há espaço. */
+  #kpis.kpis-top { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* Alteração 16 — telas muito pequenas: 1 coluna, sem espremer o conteúdo. */
+@media (max-width: 400px) {
+  #kpis.kpis-top { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+  .kpis-top .cob-kpi { min-height: 96px; }
+}
+@media (max-width: 760px) {
+  #kpis.kpis-top { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis-top .cob-kpi { min-height: 118px; }
+  /* Tablet/celular: roscas empilhadas verticalmente, sem sobreposição */
+  .cob-charts {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "perf" "status" "planta" "modal" "ranking";
+    grid-template-rows: var(--row-1) var(--row-2) var(--row-2) var(--row-2) auto;
+    --row-1: 340px; --row-2: 280px;
+  }
+  .cob-rank-more { max-height: 240px; }
+  .cob-filters-center { margin-left: 0; }
+  .cob-field { min-width: 100%; }
+  .cob-table-tools input { width: 100%; }
+}
+/* ── 17. AJUSTES DA ETAPA 3 ───────────────────────────────────────────────── */
+
+/* Alteração 2 — "Limpar filtros" e "Download Excel" lado a lado, com a mesma altura */
+.t1-fb-actions { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.t1-fb-actions .cob-clear-all,
+.t1-fb-actions .cob-report-btn { margin: 0; height: 34px; display: inline-flex; align-items: center; }
+
+/* Alteração 5 — coluna que empilha os gráficos de rosca (Status geral + Modal) */
+.cob-chart-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* Alterações 7/8 — selos de status com texto + ícone (não dependem só de cor) */
+.cob-badge.warn { background: color-mix(in srgb, #e0a13c 18%, var(--panel)); color: #8a5a10; border: 1px solid color-mix(in srgb, #e0a13c 45%, var(--panel)); }
+.cob-badge.info { background: color-mix(in srgb, #4e7fd1 15%, var(--panel)); color: #2c4e8c; border: 1px solid color-mix(in srgb, #4e7fd1 40%, var(--panel)); }
+:root[data-theme="dark"] .cob-badge.warn { color: #f0c06a; }
+:root[data-theme="dark"] .cob-badge.info { color: #9db9ec; }
+
+/* Alteração 9 — desvio da janela (ANTES / APÓS / NO HORÁRIO) */
+.desvio-antes { color: #2f8f5b; font-weight: 600; white-space: nowrap; }
+.desvio-apos { color: #d1573f; font-weight: 600; white-space: nowrap; }
+.desvio-zero { color: var(--sub); font-weight: 600; white-space: nowrap; }
+.desvio-agora { border-bottom: 1px dotted var(--sub); cursor: help; }
+
+/* Alteração 6.2 — coluna Status Não Conforme */
+.nc-cell { white-space: nowrap; }
+
+/* ── 18. EVOLUÇÃO DOS PEDIDOS — ROTA POR FORNECEDOR (Etapa 3 · Alteração 06) ──
+   Linha operacional em degraus: a via sobe da esquerda para a direita, um
+   marcador por fornecedor desce até a caixa consolidada e o veículo avança
+   conforme os registros reais de CHEGADA e SAÍDA. Toda a paleta usa as
+   variáveis de tema, portanto o componente acompanha o modo claro e escuro. */
+
+:root {
+  --evo-asfalto:    #3b4a4d;
+  --evo-percorrido: #0f6e68;
+  --evo-faixa:      #f0c059;
+  --evo-veiculo:    #1e2f33;
+  --evo-c-atraso:   #e08a2b;
+  --evo-c-dentro:   #4e7fd1;
+  --evo-c-andamento:#0f6e68;
+  --evo-c-fin:      #2f8f5b;
+  --evo-nc:         #b04a5a;
+}
+:root[data-theme="dark"] {
+  --evo-asfalto:    #2a3538;
+  --evo-percorrido: #3aa79f;
+  --evo-faixa:      #e0b455;
+  --evo-veiculo:    #cfdcdd;
+  --evo-c-dentro:   #7ba3e0;
+  --evo-c-andamento:#3aa79f;
+  --evo-c-fin:      #4bb476;
+  --evo-nc:         #e08292;
+}
+
+.evo-scroll { overflow-x: auto; overflow-y: hidden; padding: 4px 0 10px; }
+.evo-wrap { display: flex; align-items: stretch; gap: 14px; min-width: min-content; }
+
+/* ── Etapa 3 · Alterações 01 a 03 — AGLUTINADOR À ESQUERDA ──
+   .evo-layout é o contêiner externo (fora da rolagem horizontal de
+   #tlScroll). No desktop é UMA LINHA: a caixa AGLUTINADOR ocupa o canto
+   esquerdo (order:0) e a rota ocupa todo o espaço restante à direita
+   (order:1, flex:1), com a própria rolagem horizontal — por isso as duas
+   áreas nunca se sobrepõem nem espremem uma à outra.
+   CENTRALIZAÇÃO VERTICAL (Alteração 02): feita por align-items:center no
+   contêiner completo da pista, e não em relação ao primeiro fornecedor;
+   como a altura de referência é a do próprio .evo-layout (que contém a
+   pista inteira: via + cards + finalização), o aglutinador permanece no
+   centro vertical da estrutura de evolução em qualquer altura de conteúdo.
+   Nenhum valor fixo de top/left, nenhuma posição absoluta e nenhuma
+   transformação dependente de resolução: o alinhamento é 100% relativo ao
+   container e acompanha qualquer largura de tela. */
+.evo-layout {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.evo-layout > .evo-origem-row { flex: 0 0 auto; order: 0; align-self: center; }
+.evo-layout > .tl-scroll { flex: 1 1 auto; min-width: 0; order: 1; }
+
+/* No desktop a caixa e o conector formam uma linha (caixa → seta → rota),
+   integrando o aglutinador ao início do percurso. No mobile a mesma
+   estrutura vira coluna (ver media query de 760px). */
+.evo-origem-row {
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 0;
+}
+/* Conector ligando o aglutinador ao início da via. */
+.evo-origem-seta {
+  display: block; flex: 0 0 auto; width: 16px; height: 2px;
+  background: var(--evo-asfalto); position: relative; margin-left: 2px;
+}
+.evo-origem-seta::after {
+  content: ''; position: absolute; top: 50%; right: -1px; transform: translateY(-50%);
+  border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--evo-asfalto); border-right: 0;
+}
+
+/* Origem da rota — aglutinador + perfil do veículo. Largura fixa e
+   confortável de leitura, como uma coluna lateral (não mais uma faixa
+   horizontal de largura variável). */
+.evo-origem {
+  flex: 0 0 auto; width: 232px; max-width: 100%; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: linear-gradient(140deg, var(--dark2), var(--teal));
+  color: #fff; border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow-1);
+}
+.evo-origem strong { font-size: 12.5px; font-weight: 800; line-height: 1.25; word-break: break-word; }
+.evo-origem .evo-lbl { color: rgba(255,255,255,.72); }
+.evo-veic-perfil {
+  font-size: 11px; font-weight: 700; margin-top: 4px; padding: 4px 7px;
+  background: rgba(255,255,255,.14); border-radius: 6px; align-self: center;
+}
+.evo-origem-sub { font-size: 10.5px; color: rgba(255,255,255,.82); margin-top: 4px; line-height: 1.4; }
+.evo-origem-sub .evo-warn { color: #ffd9a8; }
+
+/* Trilho: via (SVG) no topo, caixas embaixo, alinhadas por coluna */
+.evo-track { position: relative; display: flex; flex-direction: column; }
+.evo-road { display: block; }
+.evo-cards { display: grid; grid-auto-flow: column; grid-auto-columns: var(--evo-col); align-items: start; }
+.evo-col { padding: 0 10px; min-width: 0; }
+
+/* Veículo — movimento suave e determinado pelos dados (seções 13 e 14) */
+.evo-veic { transition: transform 900ms cubic-bezier(.32,.72,.28,1); }
+
+/* Caixa consolidada do fornecedor (seções 4 e 5) */
+.evo-card {
+  background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--evo-c-dentro);
+  border-radius: 10px; padding: 11px 12px 12px; box-shadow: var(--shadow-1);
+  display: flex; flex-direction: column; gap: 7px; cursor: pointer;
+  transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+}
+.evo-card:hover { box-shadow: var(--shadow-2); transform: translateY(-2px); }
+.evo-card:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.evo-card.evo-sel { border-color: var(--teal); box-shadow: var(--shadow-2), 0 0 0 2px color-mix(in srgb, var(--teal) 42%, transparent); }
+
+.evo-card-head { display: flex; align-items: flex-start; gap: 8px; }
+.evo-head-txt { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 1px; }
+.evo-ord {
+  flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--evo-c-dentro); color: #fff; font-size: 11px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.evo-nome { margin: 0; font-size: 13px; font-weight: 800; color: var(--ink); line-height: 1.2; word-break: break-word; }
+.evo-muni { font-size: 10.5px; color: var(--sub); }
+.evo-aprox {
+  display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 8px;
+  background: color-mix(in srgb, var(--amber) 20%, var(--panel));
+  color: #8a5a10; font-size: 9.5px; font-weight: 700;
+}
+:root[data-theme="dark"] .evo-aprox { color: #f0c06a; }
+
+.evo-lbl { display: block; font-size: 8.6px; font-weight: 800; letter-spacing: .55px; color: var(--sub); text-transform: uppercase; }
+.evo-val { display: block; font-size: 11.6px; font-weight: 600; color: var(--ink); line-height: 1.35; word-break: break-word; }
+.evo-val em { color: var(--sub); font-style: italic; font-weight: 500; }
+.evo-field { min-width: 0; }
+.evo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 7px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.evo-grid .evo-field:first-child { grid-column: 1 / -1; }
+
+.evo-ver {
+  border: 1px solid var(--line); background: var(--teal-pale); color: var(--teal);
+  border-radius: 10px; padding: 1px 7px; font-size: 10px; font-weight: 700; cursor: pointer;
+}
+.evo-ver:hover { background: color-mix(in srgb, var(--teal) 18%, var(--panel)); }
+/* Área recolhível compartilhada por "pedidos vinculados" e "notas fiscais"
+   (Alteração 08): mesmo fundo, mesma altura máxima, mesma tipografia. */
+.evo-pedidos,
+.evo-nf-lista {
+  margin-top: 5px; max-height: 76px; overflow-y: auto; font-size: 10.5px; color: var(--sub);
+  background: color-mix(in srgb, var(--line) 30%, var(--panel)); border-radius: 6px; padding: 5px 7px; line-height: 1.5;
+}
+
+/* Status da coleta — cor + texto (nunca apenas cor: seção 30) */
+.evo-status { border-left: 3px solid var(--evo-c-dentro); padding-left: 7px; }
+.evo-st-atraso    { border-left-color: var(--evo-c-atraso); }
+.evo-st-dentro    { border-left-color: var(--evo-c-dentro); }
+.evo-st-andamento { border-left-color: var(--evo-c-andamento); }
+.evo-st-fin       { border-left-color: var(--evo-c-fin); }
+
+/* ── Etapa 3 · Alterações 04 a 12 — NOTAS FISCAIS PEDIDO EM DOIS NÍVEIS ──
+   Resumo sempre visível (quantidade oficial da coluna 39) + lista detalhada
+   da coluna 40 oculta por padrão, com o MESMO componente visual já usado em
+   "pedidos vinculados" (.evo-ver + área recolhível). Nenhum estilo próprio
+   de botão foi criado: a consistência entre os dois blocos é estrutural. */
+.evo-nf .evo-val { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.evo-nf-qtde { font-weight: 800; }
+.evo-nf-diverg {
+  font-size: 10.5px; line-height: 1; color: var(--evo-c-atraso); cursor: help;
+}
+.evo-nf-lista ul { margin: 0; padding: 0; list-style: none; }
+.evo-nf-lista li { display: block; }
+.evo-nf-lista li::before { content: '\2022  '; color: var(--teal); font-weight: 800; }
+.evo-semnf { color: var(--evo-nc); font-weight: 800; }
+.evo-nc-box {
+  background: color-mix(in srgb, var(--evo-nc) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--evo-nc) 38%, var(--panel));
+  border-radius: 7px; padding: 6px 8px;
+}
+.evo-nc-box .evo-val { color: var(--evo-nc); font-weight: 700; }
+.evo-desloc .evo-val { color: var(--sub); font-weight: 700; }
+
+/* Selos — seção 16: atraso e não conformidade convivem, sem sobreposição de cor */
+.evo-selo-nc, .evo-selo-atraso {
+  flex: 0 0 auto; font-size: 9.5px; font-weight: 800; border-radius: 8px; padding: 2px 6px; line-height: 1.5;
+}
+.evo-selo-nc { background: var(--evo-nc); color: #fff; }
+.evo-selo-atraso { background: color-mix(in srgb, var(--evo-c-atraso) 22%, var(--panel)); color: #8a5a10; border: 1px solid var(--evo-c-atraso); }
+:root[data-theme="dark"] .evo-selo-atraso { color: #f0c06a; }
+
+/* Seção 15 — alerta laranja pulsante e discreto do fornecedor em atraso */
+.evo-card.evo-atraso {
+  border-color: var(--evo-c-atraso); border-top-color: var(--evo-c-atraso);
+  background: color-mix(in srgb, var(--evo-c-atraso) 8%, var(--panel));
+  animation: delayedSupplierAlert 2.8s ease-in-out infinite;
+}
+.evo-card.evo-atraso .evo-ord { background: var(--evo-c-atraso); }
+.evo-card.evo-nc { border-right: 3px solid var(--evo-nc); }
+
+@keyframes delayedSupplierAlert {
+  0%   { opacity: 1; }
+  50%  { opacity: .82; }
+  100% { opacity: 1; }
+}
+
+/* Finalização da rota */
+.evo-col-fim { align-self: stretch; }
+.evo-fim {
+  background: color-mix(in srgb, var(--line) 34%, var(--panel));
+  border: 1px dashed var(--line); border-radius: 10px; padding: 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.evo-fim strong { font-size: 12.5px; font-weight: 800; color: var(--ink); }
+.evo-fim-sub { font-size: 10.5px; color: var(--sub); line-height: 1.45; }
+.evo-fim-ok { border-style: solid; border-color: var(--evo-c-fin); background: color-mix(in srgb, var(--evo-c-fin) 10%, var(--panel)); }
+
+.evo-pin { cursor: pointer; }
+
+/* Seções 14 e 30 — respeito à preferência de redução de movimento */
+@media (prefers-reduced-motion: reduce) {
+  .evo-card.evo-atraso { animation: none; border-width: 2px; }
+  .evo-veic { transition: none; }
+  .evo-card:hover { transform: none; }
+}
+
+/* Seção 29 + Etapa 3 · Alteração 03 — TABLET: a estrutura lateral é
+   preservada enquanto houver espaço (a rota tem rolagem horizontal própria,
+   então o aglutinador nunca é espremido nem provoca corte); a coluna apenas
+   encolhe um pouco para dar mais respiro à rota, sem perda de hierarquia. */
+@media (max-width: 1100px) {
+  .evo-origem { width: 200px; }
+  .evo-layout { gap: 12px; }
+}
+
+/* Seção 29 + Etapa 3 (revisão) · Alteração 03 — DISPOSITIVO MÓVEL: aqui sim
+   o posicionamento lateral é abandonado — .evo-layout empilha em coluna,
+   com o AGLUTINADOR de volta ao topo (order:0) e a seta reaparecendo para
+   ligá-lo visualmente à rota abaixo. A via em degraus é substituída por um
+   trilho vertical (o SVG horizontal não faz sentido em coluna). */
+@media (max-width: 760px) {
+  .evo-scroll { overflow-x: hidden; }
+  .evo-wrap { flex-direction: column; gap: 10px; min-width: 0; }
+  .evo-layout { flex-direction: column; align-items: stretch; gap: 10px; }
+  /* align-self:center (desktop) precisa voltar a stretch aqui: em coluna, o
+     eixo cruzado é o horizontal, e sem isto a caixa encolheria ao conteúdo. */
+  .evo-layout > .evo-origem-row { order: 0; align-self: stretch; }
+  /* Alteração 03 — no celular o posicionamento lateral é abandonado para não
+     provocar corte, sobreposição nem rolagem horizontal excessiva: a caixa
+     ocupa a largura total e o conector volta a apontar para baixo. */
+  .evo-origem-row { flex-direction: column; }
+  .evo-origem { width: 100%; }
+  .evo-origem-seta { width: 2px; height: 14px; margin-left: 0; margin-top: 2px; }
+  .evo-origem-seta::after {
+    top: auto; right: auto; left: 50%; bottom: -1px; transform: translateX(-50%);
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 7px solid var(--evo-asfalto); border-bottom: 0;
+  }
+  .evo-road { display: none; }
+  .evo-cards { grid-auto-flow: row; grid-auto-columns: auto; gap: 10px; position: relative; padding-left: 16px; }
+  .evo-cards::before {
+    content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 3px;
+    background: repeating-linear-gradient(var(--evo-asfalto) 0 10px, transparent 10px 18px); border-radius: 2px;
+  }
+  .evo-col { padding: 0; }
+  .evo-grid { grid-template-columns: 1fr; }
+  .evo-grid .evo-field:first-child { grid-column: auto; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ETAPA 4 — AUTENTICAÇÃO, PERFIS E ÁREA ADMINISTRATIVA
+   ──────────────────────────────────────────────────────────────────────────
+   Estilos da tela de login (#authGate), da identificação de sessão no topbar
+   (.tc-user) e da faixa administrativa (.admin-strip). Segue o padrão visual
+   executivo do painel: variáveis de tema existentes, cantos suaves e a
+   paleta ILC/John Deere já usada no topbar. Nenhum estilo anterior alterado.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Regra estrutural — elementos da Etapa 4 alternados via atributo hidden
+   pelo auth-client. Sem esta regra, display:flex/inline-flex de autor
+   venceria o [hidden]{display:none} da folha do NAVEGADOR (prioridade UA),
+   deixando o overlay de login renderizado por cima do painel mesmo após a
+   autenticação — e vice-versa para .tc-user/.admin-strip. */
+.auth-gate[hidden], .tc-user[hidden], .admin-strip[hidden],
+.auth-dev[hidden], [data-perm][hidden], #authSpin[hidden]{ display:none !important; }
+
+/* ── Tela de login ─────────────────────────────────────────────────────── */
+.auth-gate{
+  position:fixed; inset:0; z-index:5000;
+  display:flex; align-items:center; justify-content:center;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(15,110,104,.22), transparent 60%),
+    radial-gradient(900px 500px at 10% 110%, rgba(255,222,0,.14), transparent 55%),
+    var(--bg);
+  padding:24px;
+}
+.auth-card{
+  width:min(420px, 100%);
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.28);
+  padding:28px 26px 24px;
+}
+.auth-brand h1{
+  margin:0; font-size:1.05rem; letter-spacing:.08em; color:var(--ink);
+}
+.auth-brand .auth-sub{
+  margin-top:4px; font-size:.78rem; color:var(--sub); letter-spacing:.02em;
+}
+.auth-form{ margin-top:18px; display:flex; flex-direction:column; gap:12px; }
+.auth-field{ display:flex; flex-direction:column; gap:5px; }
+.auth-field > span{
+  font-size:.68rem; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--sub);
+}
+.auth-field input{
+  width:100%; box-sizing:border-box;
+  background:var(--bg); color:var(--ink);
+  border:1px solid var(--line); border-radius:9px;
+  padding:10px 12px; font-size:.9rem; outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.auth-field input:focus{
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px rgba(15,110,104,.18);
+}
+.auth-senha-wrap{ position:relative; display:block; }
+.auth-senha-wrap input{ padding-right:44px; }
+.auth-olho{
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  border:0; background:transparent; cursor:pointer;
+  font-size:1rem; line-height:1; padding:6px; border-radius:7px;
+  color:var(--sub);
+}
+.auth-olho:hover{ background:rgba(127,127,127,.12); }
+.auth-erro{
+  background:rgba(198,40,40,.1); border:1px solid rgba(198,40,40,.4);
+  color:#c62828; border-radius:9px; padding:8px 12px;
+  font-size:.8rem; font-weight:600;
+}
+.auth-entrar{
+  margin-top:2px; border:0; cursor:pointer;
+  background:var(--teal); color:#fff;
+  border-radius:9px; padding:11px 14px;
+  font-size:.85rem; font-weight:800; letter-spacing:.1em;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  transition:filter .15s ease;
+}
+.auth-entrar:hover{ filter:brightness(1.08); }
+.auth-entrar:disabled{ opacity:.65; cursor:default; }
+.auth-entrar .tb-spinner{ border-top-color:#fff; }
+
+/* Modo desenvolvimento — só aparece em localhost/arquivo local */
+.auth-dev{
+  margin-top:16px; border-top:1px dashed var(--line); padding-top:14px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.auth-dev-titulo{ font-size:.72rem; font-weight:800; color:#b26a00; }
+.auth-dev-sub{ font-size:.7rem; color:var(--sub); }
+.auth-dev-btn{
+  border:1px solid var(--line); background:var(--bg); color:var(--ink);
+  border-radius:8px; padding:8px 10px; font-size:.75rem; font-weight:700;
+  cursor:pointer; text-align:left;
+}
+.auth-dev-btn:hover{ border-color:var(--teal); }
+
+/* ── Identificação da sessão no topbar ─────────────────────────────────── */
+/* Com o bloco do usuário, a linha de ações pode exceder a largura útil em
+   monitores médios: permite quebra de linha alinhada à direita, sem sobrepor
+   o logo John Deere (que permanece como irmão no fluxo do topbar). */
+.topbar .tc-toolbar .topbar-actions{ flex-wrap:wrap; justify-content:flex-end; row-gap:8px; }
+.tc-user{
+  display:inline-flex; align-items:center; gap:10px; flex:0 1 auto; min-width:0;
+  padding-left:12px; margin-left:2px;
+  border-left:1px solid rgba(255,255,255,.25);
+}
+.tc-user-info{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; line-height:1.1; }
+.tc-user-email{ font-size:.68rem; color:#fff; opacity:.92; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tc-user-role{
+  font-size:.58rem; font-weight:800; letter-spacing:.09em;
+  padding:2px 7px; border-radius:999px; color:#fff;
+}
+.tc-user-role.role-admin{ background:#FFDE00; color:#1c1c1c; }
+.tc-user-role.role-oper{ background:rgba(255,255,255,.22); }
+.tc-dev-badge{
+  font-size:.56rem; font-weight:800; letter-spacing:.08em;
+  padding:2px 6px; border-radius:6px; background:#b26a00; color:#fff;
+}
+.tc-sair{ white-space:nowrap; }
+
+/* ── Faixa administrativa ──────────────────────────────────────────────── */
+.admin-strip{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  margin:8px 0 0; padding:8px 14px;
+  background:var(--panel); border:1px solid var(--line);
+  border-left:4px solid #FFDE00; border-radius:10px;
+  font-size:.74rem; color:var(--ink);
+}
+.admin-strip-titulo{ font-weight:800; letter-spacing:.08em; font-size:.68rem; color:var(--sub); }
+.admin-strip-item b{ font-weight:700; }
+
+/* ── Responsivo ────────────────────────────────────────────────────────── */
+@media (max-width: 760px){
+  .auth-card{ padding:22px 18px 18px; }
+  .tc-user{ border-left:0; padding-left:0; }
+  .tc-user-email{ max-width:150px; }
+}
