@@ -12,9 +12,28 @@
 
 # /api/* → functions (mesma origem: o cookie HttpOnly SameSite=Strict flui
 # naturalmente, sem CORS e sem expor o endpoint interno nas chamadas do app)
+# ============================================================
+# ROTAS DA API → NETLIFY FUNCTIONS
+# ============================================================
+
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  from = "/api/login"
+  to = "/.netlify/functions/auth-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/logout"
+  to = "/.netlify/functions/auth-logout"
+  status = 200
+
+[[redirects]]
+  from = "/api/session"
+  to = "/.netlify/functions/auth-session"
+  status = 200
+
+[[redirects]]
+  from = "/api/upload-grant"
+  to = "/.netlify/functions/upload-grant"
   status = 200
 
 # ── Headers de segurança (Seções 30 e 31) ───────────────────────────────────
