@@ -20,9 +20,18 @@ exports.handler = async (event) => {
 
   const usuarios = lib.carregarUsuarios(process.env);
   if (!process.env.AUTH_SECRET || !usuarios.length) {
-    lib.logSeguranca('LOGIN_CONFIG_AUSENTE', {});
-    return lib.json(500, { erro: 'Serviço de autenticação indisponível.' });   // sem detalhes internos (Seção 40)
-  }
+  lib.logSeguranca('LOGIN_CONFIG_AUSENTE', {
+    authSecretPresente: Boolean(process.env.AUTH_SECRET),
+    tcUsersPresente: Boolean(process.env.TC_USERS),
+    tcUsersTamanho: String(process.env.TC_USERS || '').length,
+    usuariosValidos: usuarios.length
+  });
+
+  return lib.json(500, {
+    erro: 'Serviço de autenticação indisponível.'
+  });
+}
+  
 
   const usuario = usuarios.find(u => u.email === email);
   const senhaOk = usuario ? lib.verificarSenha(senha, usuario.hash) : false;
