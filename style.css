@@ -1515,3 +1515,12 @@ footer { text-align: center; color: var(--sub); font-size: 11px; margin-top: 20p
   .tc-user{ border-left:0; padding-left:0; }
   .tc-user-email{ max-width:150px; }
 }
+
+/* Campos de pesquisa e download mais compactos. */
+@media (min-width: 761px) {
+  #gAglWrap { width: 170px; min-width: 0; }
+  #gPedidoWrap, #cobPedidoWrap { width: 165px; min-width: 0; }
+  .cob-filters-center > .cob-field:first-child { width: 145px; min-width: 0; }
+  #gmsPlanner .ms-btn, #msPlanner .ms-btn { min-width: 0; }
+}
+#downloadBtn { height: 32px; padding: 0 10px; font-size: 12px; }
