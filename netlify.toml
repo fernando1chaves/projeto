@@ -36,6 +36,26 @@
   to = "/.netlify/functions/upload-grant"
   status = 200
 
+  [[redirects]]
+from = "/api/data-save"
+to = "/.netlify/functions/data-save"
+status = 200
+
+[[redirects]]
+from = "/api/data-load"
+to = "/.netlify/functions/data-load"
+status = 200
+
+[[redirects]]
+  from = "/api/carteira-save"
+  to = "/.netlify/functions/carteira-save"
+  status = 200
+
+[[redirects]]
+  from = "/api/carteira-load"
+  to = "/.netlify/functions/carteira-load"
+  status = 200
+
 # ── Headers de segurança (Seções 30 e 31) ───────────────────────────────────
 [[headers]]
   for = "/*"
