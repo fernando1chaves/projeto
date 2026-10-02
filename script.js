@@ -1,4 +1,4 @@
-console.log('followup-dashboard script.js v6.0 (Etapa 4 — autenticacao com sessao validada em camada confiavel (Netlify Functions), RBAC com perfis ADMINISTRADOR/OPERACIONAL, upload autorizado no servidor, protecao XSS nos dados da planilha e inicializacao condicionada ao login) carregado');
+console.log('followup-dashboard script.js v6.1.1 (Etapa 4 — autenticacao com sessao validada em camada confiavel (Netlify Functions), RBAC com perfis ADMINISTRADOR/OPERACIONAL, upload autorizado no servidor, protecao XSS nos dados da planilha, inicializacao condicionada ao login, base central via Netlify Blobs e coluna PERFIL DO VEICULO nas tabelas de Monitoramento e Detalhamento) carregado');
 /* ============================================================================
    FOLLOW-UP DE COLETAS POR AGLUTINADOR — script.js
    ----------------------------------------------------------------------------
@@ -60,7 +60,7 @@ const STATUS_ORDER = ['Não iniciado','Iniciado','Finalizado'];
    ========================================================================== */
 
 const TZ_BRASILIA = 'America/Sao_Paulo';
-const JANELA_TOLERANCIA_MIN = 30; // Alteração 7 — ±30 minutos em torno da janela
+const JANELA_TOLERANCIA_MIN = 0; // Atraso inicia imediatamente após o horário da janela
 
 /* Converte um ISO "de parede" (com ou sem sufixo Z/offset) para ms no quadro
    naive. Os componentes são lidos diretamente da string, sem interpretação de
@@ -109,12 +109,12 @@ function recalcularAgora(){
 
      código        condição                                                 card
      ------------  -------------------------------------------------------  ----------------------
-     'dentro'      sem chegada  e  Agora Brasília <= janela + 30min          Dentro da Janela
-     'atraso'      sem chegada  e  Agora Brasília >  janela + 30min          Pedidos em Atraso
+     'dentro'      sem chegada  e  Agora Brasília <= janela                  Dentro da Janela
+     'atraso'      sem chegada  e  Agora Brasília >  janela                  Pedidos em Atraso
      'iniciado'    chegada preenchida e saída vazia                          (operação em andamento)
-     'fin_prazo'   chegada e saída preenchidas, janela−30 <= chegada <= +30  FIN. DENTRO DO PRAZO
-     'fin_atraso'  chegada e saída preenchidas, chegada > janela + 30min     FIN. COM ATRASO
-     'fin_antes'   chegada e saída preenchidas, chegada < janela − 30min     Finalizado Antecipado
+     'fin_prazo'   chegada e saída preenchidas, chegada <= janela            FIN. DENTRO DO PRAZO
+     'fin_atraso'  chegada e saída preenchidas, chegada > janela             FIN. COM ATRASO
+     'fin_antes'   chegada e saída preenchidas, chegada < janela             Finalizado Antecipado
      null          sem janela válida                                        Sem janela
 
    Alteração 19 — a chegada antecipada além da tolerância NÃO é tratada como
@@ -136,7 +136,7 @@ function recalcularAgora(){
 
    Flags auxiliares preservadas das etapas anteriores:
      chegouNoPrazo     — houve chegada dentro da tolerância (gráfico Performance)
-     atrasoOperacional — desvio (chegada, ou Agora se não houve chegada) > +30min
+     atrasoOperacional — desvio (chegada, ou Agora se não houve chegada) > 0min
                          (faixa de tempo médio/maior atraso e Ranking)
    ========================================================================== */
 
@@ -297,8 +297,8 @@ function classificarPedido(r){
   }
 
   const tol    = JANELA_TOLERANCIA_MIN * 60000;
-  const inicio = janMs - tol;   // Alteração 7 — limite inicial (janela − 30min)
-  const fim    = janMs + tol;   // Alteração 7 — limite final  (janela + 30min)
+  const inicio = janMs - tol;   // Alteração 7 — limite inicial (janela; tolerância atual = 0)
+  const fim    = janMs + tol;   // Alteração 7 — limite final (janela; tolerância atual = 0)
 
   /* Alteração 8 — sem Chegada Origem, a referência é o horário atual de
      Brasília; com chegada, a própria chegada. */
@@ -323,17 +323,17 @@ function classificarPedido(r){
 
   /* ALTERAÇÃO 04 · Seção 5 — ORDEM OBRIGATÓRIA DE DECISÃO (determinística):
      Etapa 1 — finalizado (Chegada + Saída)?
-         chegada ≤ janela + 30 min → FIN. DENTRO DO PRAZO
-         chegada >  janela + 30 min → FIN. COM ATRASO
-       Conclusão antecipada (chegada antes de janela − 30 min) NÃO é atraso:
+         chegada ≤ janela → FIN. DENTRO DO PRAZO
+         chegada > janela → FIN. COM ATRASO
+       Conclusão antecipada (chegada antes da janela) NÃO é atraso:
        o prazo é o limite FINAL da janela; quem concluiu antes dele concluiu
        dentro do prazo. O detalhe "Finalizado Antecipado" segue disponível em
        code/label para a tabela, como informação complementar.
      Etapa 2 — não finalizado (independe do status textual):
          referência = Chegada Origem, ou o horário atual de Brasília se ainda
          não houve chegada (Alteração 8 — mesma referência já adotada);
-         referência ≤ janela + 30 min → Dentro da Janela
-         referência >  janela + 30 min → Pedidos em Atraso */
+         referência ≤ janela → Dentro da Janela
+         referência > janela → Pedidos em Atraso */
   if(finalizado){
     c.categoria = (chegMs > fim) ? 'fin_atraso' : 'fin_prazo';
   } else {
@@ -345,9 +345,30 @@ function classificarPedido(r){
 /* Acesso memoizado — 1 cálculo por registro por ciclo de atualização.
    Mantido o nome statusJanela() das etapas anteriores para não quebrar os
    componentes já existentes; o retorno agora é o objeto completo. */
+
+/* Validação defensiva da regra de finalização.
+   Se Chegada Origem E Saída Origem estiverem válidas, categoria jamais pode
+   permanecer como "atraso" ou "dentro". A classificação central acima já
+   garante essa precedência; esta função documenta/testa a invariável em
+   desenvolvimento sem alterar dados nem mascarar erros. */
+function validarFinalizacaoPedido(r, c){
+  if(c && c.hasArrival && c.hasDeparture &&
+     (c.categoria === 'atraso' || c.categoria === 'dentro')){
+    console.error('[Torre de Controle] Pedido finalizado classificado como pendente', {
+      pedido: r && r.pedido,
+      chegada: r && r.chegada_origem,
+      saida: r && r.saida_origem,
+      categoria: c.categoria
+    });
+    return false;
+  }
+  return true;
+}
+
 function statusJanela(r){
   if(r._sjStamp !== _statusStamp){
     r._sj = classificarPedido(r);
+    validarFinalizacaoPedido(r, r._sj);
     r._sjStamp = _statusStamp;
   }
   return r._sj;
@@ -406,7 +427,7 @@ let currentAgl = null;
    evolução, mapa, tabela, KPIs e para o módulo PERFORMANCE TRANSPORTADORAS
    (que consome filteredData() através de cobFilteredData()). */
 const gFilters = { pedido: '', aglutinador: '', fornecedor: '', kpi: null };
-let gmsTransp = null, gmsData = null, gmsModal = null; // multi-selects da aba 1
+let gmsTransp = null, gmsData = null, gmsModal = null, gmsPlanner = null, gmsPlanta = null; // multi-selects da aba 1
 
 // resumo de cada aglutinador — recalculado conforme o filtro de transportadora ativo
 function computeAglSummary(){
@@ -638,11 +659,15 @@ function filteredData(){
   const selT = gmsTransp ? gmsTransp.getSelected() : null;
   const selD = gmsData   ? gmsData.getSelected()   : null;
   const selM = gmsModal  ? gmsModal.getSelected()  : null;
+  const selPlanner = gmsPlanner ? gmsPlanner.getSelected() : null;
+  const selPlanta = gmsPlanta ? gmsPlanta.getSelected() : null;
   const ped  = gFilters.pedido;
   const agl  = gFilters.aglutinador.toLowerCase();
   const forn = gFilters.fornecedor.toLowerCase();   // Alteração 01
   const kpiF = gFilters.kpi ? KPI_FILTERS[gFilters.kpi] : null;
   return RAW.filter(r =>
+    (!selPlanner || selPlanner.has(plannerDoFornecedor(r))) &&
+    (!selPlanta || selPlanta.has(r.planta)) &&
     (!selT || selT.has(r.transportador)) &&
     (!selD || selD.has(r.janela_data)) &&
     (!selM || selM.has(r.modal)) &&
@@ -719,9 +744,9 @@ function buildKpis(){
     { key:null,           lbl:'Total de Pedidos',      ico:'📋', color:'#3aa79f',
       tip:'Total de pedidos válidos após os filtros ativos · clique para limpar o filtro de indicador' },
     { key:'atraso',       lbl:'Pedidos em Atraso',     ico:'🕐', color:'#d1573f',
-      tip:'Pedido em Atraso — não finalizado (sem Saída Origem) e já passou da janela + 30 min. Referência: Chegada Origem ou, sem chegada, o horário atual de Brasília. Independe do status textual.' },
+      tip:'Pedido em Atraso — não finalizado (sem Saída Origem) e já passou do horário da janela. Referência: Chegada Origem ou, sem chegada, o horário atual de Brasília. Independe do status textual.' },
     { key:'dentro',       lbl:'Dentro da Janela',      ico:'✅', color:'#4e7fd1',
-      tip:'Dentro da Janela — não finalizado e ainda dentro do prazo (até janela + 30 min). Independe do status textual (Não iniciado/Iniciado).' },
+      tip:'Dentro da Janela — não finalizado e ainda dentro do prazo (até o horário da janela). Independe do status textual (Não iniciado/Iniciado).' },
     { key:'sem_ge',       lbl:'Sem GE',                ico:'⏳', color:'#e0a13c',
       tip:'Sem GE — pedidos sem Gestão Embarcada válida' },
     { key:'com_nf',       lbl:'Com NF',                ico:'🧾', color:'#2f8f5b',
@@ -737,9 +762,9 @@ function buildKpis(){
     /* Alteração 1 (Etapa 3) — novos indicadores de finalização, mesmo padrão
        visual e funcional dos demais cards. */
     { key:'fin_prazo',    lbl:'FIN. DENTRO DO PRAZO',  ico:'🏁', color:'#2f8f5b',
-      tip:'Finalizado Dentro do Prazo — Chegada e Saída Origem preenchidas, com chegada até janela + 30 min (conclusões antecipadas contam como dentro do prazo)' },
+      tip:'Finalizado Dentro do Prazo — Chegada e Saída Origem preenchidas, com chegada até o horário da janela (conclusões antecipadas contam como dentro do prazo)' },
     { key:'fin_atraso',   lbl:'FIN. COM ATRASO',       ico:'⛔', color:'#b04a5a',
-      tip:'Finalizado com Atraso — Chegada e Saída Origem preenchidas, com chegada após janela + 30 min' },
+      tip:'Finalizado com Atraso — Chegada e Saída Origem preenchidas, com chegada após o horário da janela' },
   ];
 
   kpis.forEach(k => {
@@ -785,6 +810,8 @@ function populateGlobalMultiSelects(){
   gmsTransp.setOptions(transp);
   gmsData.setOptions(datas);
   gmsModal.setOptions(modais);
+  gmsPlanner.setOptions(opcoesPlanner());
+  gmsPlanta.setOptions(opcoesPlanta());
 }
 
 function resetGlobalFilters(){
@@ -798,10 +825,14 @@ function resetGlobalFilters(){
   if(gmsTransp) gmsTransp.clear();
   if(gmsData) gmsData.clear();
   if(gmsModal) gmsModal.clear();
+  if(gmsPlanner) gmsPlanner.clear();
+  if(gmsPlanta) gmsPlanta.clear();
   populateGlobalMultiSelects();
 }
 
 function setupGlobalFilters(){
+  gmsPlanner = createMultiSelect('gmsPlanner', 'Todos', { onChange: globalFiltersChanged });
+  gmsPlanta = createMultiSelect('gmsPlanta', 'Todas', { onChange: globalFiltersChanged });
   gmsTransp = createMultiSelect('gmsTransp', 'Todas', { onChange: globalFiltersChanged });
   gmsData   = createMultiSelect('gmsData',   'Todas', { onChange: globalFiltersChanged, range: true });
   gmsModal  = createMultiSelect('gmsModal',  'Todos', { onChange: globalFiltersChanged });
@@ -901,19 +932,324 @@ function salvarUploadLocal(fileName){
     return null;   // cota excedida / armazenamento indisponível
   }
 }
+async function salvarUploadCentral(fileName){
+  const rows = RAW.map(r => {
+    const c = {};
+    for(const k in r){
+      if(k.charAt(0) !== '_') c[k] = r[k];
+    }
+    return c;
+  });
+
+  const resposta = await fetch('/api/data-save', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      fileName,
+      rows
+    })
+  });
+
+  let dados = {};
+  try{
+    dados = await resposta.json();
+  }catch(e){
+    dados = {};
+  }
+
+  if(!resposta.ok || !dados.ok){
+    throw new Error(
+      dados.erro ||
+      'Não foi possível atualizar a base central.'
+    );
+  }
+
+  return dados;
+}
 
 function restaurarUploadSalvo(){
   try{
     const bruto = localStorage.getItem(UPLOAD_CACHE_KEY);
-    if(!bruto) return;
+    if(!bruto) return null;
     const cache = JSON.parse(bruto);
-    if(!cache || !Array.isArray(cache.rows) || !cache.rows.length) return;
+    if(!cache || !Array.isArray(cache.rows) || !cache.rows.length) return null;
     RAW = cache.rows;
-    showTbStatus('📤 Base do último upload restaurada automaticamente — <b>' + esc(cache.fileName || 'planilha') + '</b>, enviado em ' + fmtDataHoraBR(cache.savedAt) + ' · ' + RAW.length + ' pedidos.', true);
-    atualizarStatusBaseAdmin(cache);
-  }catch(e){ /* cache corrompido: mantém a base embutida */ }
+    const localCache = { ...cache, origem: 'local' };
+    showTbStatus('📤 Base local de contingência restaurada — <b>' + esc(cache.fileName || 'planilha') + '</b>, enviada em ' + fmtDataHoraBR(cache.savedAt) + ' · ' + RAW.length + ' pedidos.', true);
+    atualizarStatusBaseAdmin(localCache);
+    return localCache;
+  }catch(e){
+    return null;   // cache corrompido: mantém a base embutida
+  }
 }
 
+async function carregarUploadCentral(){
+  const resposta = await fetch('/api/data-load', {
+    method: 'GET',
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: {
+      'Accept': 'application/json'
+    }
+  });
+
+  let dados = {};
+  try{
+    dados = await resposta.json();
+  }catch(e){
+    dados = {};
+  }
+
+  if(!resposta.ok || !dados.ok){
+    throw new Error(dados.erro || 'Não foi possível carregar a base central.');
+  }
+
+  if(!dados.existe || !Array.isArray(dados.rows) || !dados.rows.length){
+    return null;
+  }
+
+  const cache = {
+    fileName: dados.fileName || 'base central',
+    savedAt: Number(dados.savedAt) || Date.now(),
+    updatedBy: dados.updatedBy || null,
+    rows: dados.rows,
+    origem: 'central'
+  };
+
+  RAW = cache.rows;
+
+  // Mantém uma cópia local apenas como contingência caso a API fique indisponível.
+  try{
+    localStorage.setItem(UPLOAD_CACHE_KEY, JSON.stringify({
+      fileName: cache.fileName,
+      savedAt: cache.savedAt,
+      updatedBy: cache.updatedBy,
+      rows: cache.rows
+    }));
+  }catch(e){ /* contingência local indisponível; a base central continua válida */ }
+
+  atualizarStatusBaseAdmin(cache);
+  return cache;
+}
+/* ==========================================================================
+   V4.5.6 — SINCRONIZAÇÃO AUTOMÁTICA DA BASE CENTRAL
+   ========================================================================== */
+
+const TC_SYNC_INTERVAL_MS = 30000;
+
+let tcUltimaVersaoCentral = 0;
+let tcSincronizacaoEmAndamento = false;
+let tcSyncTimer = null;
+
+/**
+ * Registra a versão da base central atualmente carregada neste navegador.
+ */
+function registrarVersaoCentral(cache){
+  if(!cache) return;
+
+  const savedAt = Number(cache.savedAt);
+
+  if(Number.isFinite(savedAt) && savedAt > 0){
+    tcUltimaVersaoCentral = Math.max(
+      tcUltimaVersaoCentral,
+      savedAt
+    );
+  }
+}
+
+/**
+ * Consulta a base oficial armazenada no servidor.
+ */
+async function consultarBaseCentral(){
+  const resposta = await fetch('/api/data-load?t=' + Date.now(), {
+    method: 'GET',
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: {
+      'Accept': 'application/json',
+      'Cache-Control': 'no-cache'
+    }
+  });
+
+  let dados = {};
+
+  try{
+    dados = await resposta.json();
+  }catch(e){
+    dados = {};
+  }
+
+  if(resposta.status === 401){
+    throw new Error('Sessão inexistente ou expirada.');
+  }
+
+  if(!resposta.ok || !dados.ok){
+    throw new Error(
+      dados.erro ||
+      'Não foi possível consultar a base central.'
+    );
+  }
+
+  if(
+    !dados.existe ||
+    !Array.isArray(dados.rows) ||
+    !dados.rows.length
+  ){
+    return null;
+  }
+
+  return {
+    fileName: dados.fileName || 'base central',
+    savedAt: Number(dados.savedAt) || 0,
+    updatedBy: dados.updatedBy || null,
+    rows: dados.rows,
+    origem: 'central'
+  };
+}
+
+/**
+ * Verifica se existe uma versão mais nova da base central.
+ */
+async function sincronizarBaseCentral(options = {}){
+  const force = options.force === true;
+
+  if(tcSincronizacaoEmAndamento){
+    return false;
+  }
+
+  tcSincronizacaoEmAndamento = true;
+
+  try{
+    const cache = await consultarBaseCentral();
+
+    if(!cache){
+      return false;
+    }
+
+    const versaoRemota = Number(cache.savedAt) || 0;
+
+    if(
+      !force &&
+      tcUltimaVersaoCentral > 0 &&
+      versaoRemota <= tcUltimaVersaoCentral
+    ){
+      return false;
+    }
+
+    RAW = cache.rows;
+
+    tcUltimaVersaoCentral = versaoRemota;
+
+    /*
+     * Mantém cópia local apenas como contingência.
+     */
+    try{
+      localStorage.setItem(
+        UPLOAD_CACHE_KEY,
+        JSON.stringify({
+          fileName: cache.fileName,
+          savedAt: cache.savedAt,
+          updatedBy: cache.updatedBy,
+          rows: cache.rows
+        })
+      );
+    }catch(e){
+      console.warn(
+        'Não foi possível atualizar a cópia local de contingência.',
+        e
+      );
+    }
+
+    /*
+     * CORREÇÃO — preserva a análise em andamento.
+     * A sincronização automática não deve apagar filtros válidos. Os estados
+     * textuais, KPIs e seleções dos gráficos permanecem intactos; apenas as
+     * opções dos multisseletores são reconciliadas com a nova base.
+     *
+     * createMultiSelect.setOptions() já remove somente valores selecionados
+     * que deixaram de existir na base, preservando todo o restante.
+     */
+    if(gmsTransp && gmsData && gmsModal) populateGlobalMultiSelects();
+    if(msTransp && msData && msModal) populateCobMultiSelects();
+
+    /* Mantém o aglutinador atual quando ele ainda existe na nova base.
+       Caso tenha desaparecido, remove somente essa seleção inválida. */
+    if(currentAgl && !RAW.some(r => r.aglutinador === currentAgl)){
+      currentAgl = null;
+    }
+
+    atualizarStatusBaseAdmin(cache);
+
+    /*
+     * Reconstrói os componentes do dashboard com a nova base, mantendo os
+     * filtros selecionados pelo usuário.
+     */
+    refreshAll();
+
+    console.info(
+      '[TC-SYNC] Base central atualizada.',
+      {
+        savedAt: cache.savedAt,
+        fileName: cache.fileName,
+        updatedBy: cache.updatedBy,
+        registros: cache.rows.length
+      }
+    );
+
+    return true;
+
+  }catch(e){
+
+    console.warn(
+      '[TC-SYNC] Não foi possível verificar a base central.',
+      e
+    );
+
+    return false;
+
+  }finally{
+    tcSincronizacaoEmAndamento = false;
+  }
+}
+
+/**
+ * Ativa a sincronização automática.
+ */
+function iniciarSincronizacaoCentral(){
+
+  if(tcSyncTimer){
+    return;
+  }
+
+  tcSyncTimer = setInterval(() => {
+    sincronizarBaseCentral();
+  }, TC_SYNC_INTERVAL_MS);
+
+  /*
+   * Ao retornar para a aba, verifica imediatamente.
+   */
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible'){
+      sincronizarBaseCentral();
+    }
+  });
+
+  /*
+   * Também verifica quando a janela recebe foco novamente.
+   */
+  window.addEventListener('focus', () => {
+    sincronizarBaseCentral();
+  });
+
+  console.info(
+    '[TC-SYNC] Sincronização automática ativada a cada ' +
+    (TC_SYNC_INTERVAL_MS / 1000) +
+    ' segundos.'
+  );
+}
 /* Etapa 4 · Seções 21 e 36 — faixa administrativa: situação da base ativa,
    com última atualização e responsável. Visível apenas para ADMINISTRADOR
    (data-perm no HTML, aplicado pelo auth-client). Conteúdo escapado. */
@@ -921,29 +1257,83 @@ function atualizarStatusBaseAdmin(cache){
   const el = document.getElementById('adminBaseInfo');
   if(!el) return;
   if(!cache || !cache.savedAt){
-    el.textContent = 'Base embutida de referência (' + RAW.length + ' pedidos) — nenhum upload registrado neste navegador.';
+    el.textContent = 'Base embutida de referência (' + RAW.length + ' pedidos) — nenhuma base central disponível.';
     return;
   }
+
+  const origem = cache.origem === 'central'
+    ? 'Base central compartilhada (Netlify)'
+    : 'Cópia local de contingência deste navegador';
+
   el.innerHTML = 'Base ativa: <b>' + esc(cache.fileName || 'planilha') + '</b> · ' + RAW.length
     + ' pedidos · Última atualização em <b>' + fmtDataHoraBR(cache.savedAt) + '</b>'
     + (cache.updatedBy ? ' por <b>' + esc(cache.updatedBy) + '</b>' : '')
-    + ' · Armazenada localmente neste navegador.';
+    + ' · ' + origem + '.';
 }
 
+/* ==========================================================================
+   ETAPA 4 · CORREÇÃO DE DATA/HORA OPERACIONAL
+   --------------------------------------------------------------------------
+   Excel não possui fuso horário nos campos de data/hora. Por isso JANELA,
+   CHEGADA ORIGEM e SAÍDA ORIGEM são tratados como horários \"de parede\" e
+   serializados sem conversão para UTC. Isso evita deslocamentos como
+   28/08 22:00 -> 29/08 01:00 quando o navegador está em Brasília.
+   ========================================================================== */
 function excelSerialToDate(v){
-  if(v instanceof Date) return v;
-  if(typeof v === 'number'){
-    // serial de data do Excel (base 1899-12-30)
-    return new Date(Math.round((v - 25569) * 86400 * 1000));
+  if(v == null || v === '') return null;
+
+  // Compatibilidade com bases já entregues como Date pelo SheetJS.
+  if(v instanceof Date){
+    const d = new Date(v.getTime());
+    return isNaN(d.getTime()) ? null : d;
   }
+
+  // Serial numérico do Excel: lê os componentes sem aplicar timezone real.
+  if(typeof v === 'number' && Number.isFinite(v)){
+    const ms = Date.UTC(1899, 11, 30) + Math.round(v * 86400000);
+    const t = new Date(ms);
+    const d = new Date(
+      t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(),
+      t.getUTCHours(), t.getUTCMinutes(), t.getUTCSeconds(), t.getUTCMilliseconds()
+    );
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   if(typeof v === 'string' && v.trim()){
-    const d = new Date(v);
+    const s = v.trim();
+
+    // dd/mm/yyyy [hh:mm[:ss]]
+    let m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(s);
+    if(m){
+      const d = new Date(+m[3], +m[2]-1, +m[1], +(m[4]||0), +(m[5]||0), +(m[6]||0), 0);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    // yyyy-mm-dd[T ]hh:mm[:ss] — lê os componentes sem interpretar Z/offset.
+    m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
+    if(m){
+      const d = new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0), 0);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    // Último fallback para formatos legados reconhecidos pelo navegador.
+    const d = new Date(s);
     if(!isNaN(d.getTime())) return d;
   }
   return null;
 }
 
+/* Serializa o horário operacional sem converter para UTC. */
+function dateWallToIso(d){
+  if(!(d instanceof Date) || isNaN(d.getTime())) return null;
+  const pad = n => String(n).padStart(2,'0');
+  return String(d.getFullYear()).padStart(4,'0') + '-'
+    + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T'
+    + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
 function fmtDDMMHHMM(d){
+  if(!(d instanceof Date) || isNaN(d.getTime())) return '—';
   const pad = n=>String(n).padStart(2,'0');
   return pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes());
 }
@@ -955,6 +1345,55 @@ function parseTempoH(v){
   if(m) return Math.round((parseInt(m[1],10) + parseInt(m[2],10)/60)*100)/100;
   const asNum = parseFloat(v);
   return isNaN(asNum) ? null : asNum;
+}
+
+/* Etapa 4 · Alteração 21 — busca resiliente da coluna de Perfil do Veículo.
+   Tenta, em ordem, os nomes de cabeçalho conhecidos; a primeira coluna
+   presente na linha (mesmo vazia) é usada. Nenhuma normalização do
+   cabeçalho original do arquivo — apenas leitura por nome exato. */
+function campoPerfilVeiculo(row){
+  const chaves = ['VEICULO AGLUTINADO', 'PERFIL DO VEÍCULO', 'PERFIL DO VEICULO', 'PERFIL VEÍCULO', 'PERFIL VEICULO'];
+  for(const k of chaves){
+    if(Object.prototype.hasOwnProperty.call(row, k)) return row[k] || null;
+  }
+  return null;
+}
+
+
+/* ==========================================================================
+   CORREÇÃO PERFORMANCE TRANSPORTADORAS · LEITURA RESILIENTE DE CABEÇALHOS
+   --------------------------------------------------------------------------
+   A classificação de prazo NÃO muda: Chegada Origem + Saída Origem define
+   pedido finalizado, e a chegada define se foi dentro do prazo ou com atraso.
+   Esta camada apenas evita que variações legítimas de acento/nomenclatura do
+   Excel façam um campo preenchido ser interpretado como vazio.
+
+   Ex.: "SAIDA ORIGEM" e "SAÍDA ORIGEM" passam a ser equivalentes.
+   ========================================================================== */
+function normalizarCabecalhoPlanilha(v){
+  return String(v == null ? '' : v)
+    .trim()
+    .toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_\-.\/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function valorCampoPlanilha(row, aliases){
+  if(!row) return null;
+
+  // Caminho rápido: tenta primeiro os nomes exatos informados.
+  for(const alias of aliases){
+    if(Object.prototype.hasOwnProperty.call(row, alias)) return row[alias];
+  }
+
+  // Fallback resiliente: compara cabeçalhos sem acento e com espaços uniformes.
+  const procurados = new Set(aliases.map(normalizarCabecalhoPlanilha));
+  for(const key of Object.keys(row)){
+    if(procurados.has(normalizarCabecalhoPlanilha(key))) return row[key];
+  }
+  return null;
 }
 
 function transformSheetRows(json){
@@ -971,13 +1410,26 @@ function transformSheetRows(json){
     }
     const janelaD = excelSerialToDate(janelaRaw);
     if(!janelaD){ skipped++; errors.push('Linha '+(idx+2)+': janela inválida.'); return; }
-    const chegadaD = excelSerialToDate(row['CHEGADA ORIGEM']);
-    const saidaD = excelSerialToDate(row['SAIDA ORIGEM']);
+    const chegadaD = excelSerialToDate(valorCampoPlanilha(row, [
+      'CHEGADA ORIGEM',
+      'CHEGADA À ORIGEM',
+      'CHEGADA A ORIGEM'
+    ]));
+    const saidaD = excelSerialToDate(valorCampoPlanilha(row, [
+      'SAIDA ORIGEM',
+      'SAÍDA ORIGEM',
+      'SAIDA DA ORIGEM',
+      'SAÍDA DA ORIGEM'
+    ]));
     const inicioD = excelSerialToDate(row['INICIO OPERACAO APP']) || excelSerialToDate(row['INICIO OPERACAO MAN']);
     const fimD = excelSerialToDate(row['FIM OPERACAO APP']) || excelSerialToDate(row['FIM OPERACAO MAN']);
 
     let status = 'Não iniciado';
-    if(fimD) status = 'Finalizado';
+    /* Chegada + Saída é evidência operacional suficiente de encerramento.
+       O FIM OPERAÇÃO continua aceito como fonte de finalização; esta correção
+       impede que um pedido com saída registrada permaneça textual/visualmente
+       como "Iniciado" apenas porque o campo FIM OPERAÇÃO veio vazio. */
+    if(fimD || (chegadaD && saidaD)) status = 'Finalizado';
     else if(inicioD || chegadaD) status = 'Iniciado';
 
     const atraso_chegada_min = chegadaD ? Math.round((chegadaD - janelaD)/60000) : null;
@@ -1000,7 +1452,13 @@ function transformSheetRows(json){
     out.push({
       pedido: Number(pedido),
       aglutinador: String(aglutinador),
-      veiculo_aglutinado: row['VEICULO AGLUTINADO'] || null,
+      /* Etapa 4 · Alteração 21 — PERFIL DO VEÍCULO. Mapeamento resiliente:
+         a coluna 'VEICULO AGLUTINADO' é a fonte semanticamente correta na
+         base atual (já usada como perfil do veículo em Evolução dos
+         Pedidos — Etapa 3 · Alteração 06). Variações de nome eventualmente
+         usadas em bases futuras são aceitas na ordem abaixo, sem alterar o
+         cabeçalho original do arquivo importado; nenhum valor é inventado. */
+      veiculo_aglutinado: campoPerfilVeiculo(row),
       /* Alteração 06 · seção 22 — identificador oficial do fornecedor. Passa a
          ser a chave de agrupamento (o nome fica apenas para exibição), evitando
          que fornecedores distintos com nomes parecidos sejam consolidados. */
@@ -1010,12 +1468,12 @@ function transformSheetRows(json){
       planta: row['PLANTA'] || null,
       transportador: row['TRANSPORTADOR'] || null,
       janela: fmtDDMMHHMM(janelaD),
-      janela_iso: janelaD.toISOString(),
-      janela_data: janelaD.toISOString().slice(0,10),
+      janela_iso: dateWallToIso(janelaD),
+      janela_data: dateWallToIso(janelaD).slice(0,10),
       chegada_origem: chegadaD ? fmtDDMMHHMM(chegadaD) : null,
-      chegada_iso: chegadaD ? chegadaD.toISOString() : null,
+      chegada_iso: chegadaD ? dateWallToIso(chegadaD) : null,
       saida_origem: saidaD ? fmtDDMMHHMM(saidaD) : null,
-      saida_iso: saidaD ? saidaD.toISOString() : null,
+      saida_iso: saidaD ? dateWallToIso(saidaD) : null,
       atraso_chegada_min, permanencia_min, atraso_saida_min,
       status,
       tempo_h: parseTempoH(row['TEMPO']),
@@ -1038,9 +1496,33 @@ function transformSheetRows(json){
       modal: row['TIPO'] || null,
       ge: (row['GE']!=null && String(row['GE']).trim()!=='') ? String(row['GE']).trim() : null,
       tem_ge: row['GE']!=null && String(row['GE']).trim()!=='',
-      status_nc: (row['STATUS NÃO CONFORME']!=null && String(row['STATUS NÃO CONFORME']).trim()!=='') ? String(row['STATUS NÃO CONFORME']).trim() : null,
-      motivo_nc: (row['MOTIVO NÃO CONFORME']!=null && String(row['MOTIVO NÃO CONFORME']).trim()!=='') ? String(row['MOTIVO NÃO CONFORME']).trim() : null,
-      nao_conforme: row['STATUS NÃO CONFORME']!=null && String(row['STATUS NÃO CONFORME']).trim()!=='',
+      status_nc: (() => {
+        const v = valorCampoPlanilha(row, [
+          'STATUS NÃO CONFORME',
+          'STATUS NAO CONFORME',
+          'STATUS NÃO CONFORMIDADE',
+          'STATUS NAO CONFORMIDADE'
+        ]);
+        return v != null && String(v).trim() !== '' ? String(v).trim() : null;
+      })(),
+      motivo_nc: (() => {
+        const v = valorCampoPlanilha(row, [
+          'MOTIVO NÃO CONFORME',
+          'MOTIVO NAO CONFORME',
+          'MOTIVO NÃO CONFORMIDADE',
+          'MOTIVO NAO CONFORMIDADE'
+        ]);
+        return v != null && String(v).trim() !== '' ? String(v).trim() : null;
+      })(),
+      nao_conforme: (() => {
+        const v = valorCampoPlanilha(row, [
+          'STATUS NÃO CONFORME',
+          'STATUS NAO CONFORME',
+          'STATUS NÃO CONFORMIDADE',
+          'STATUS NAO CONFORMIDADE'
+        ]);
+        return v != null && String(v).trim() !== '';
+      })(),
       lat: (lat!=null && !isNaN(lat)) ? lat : null,
       lng: (lng!=null && !isNaN(lng)) ? lng : null,
     });
@@ -1100,9 +1582,9 @@ function setupUpload(){
     showTbStatus('<span class="tb-spinner"></span>Processando planilha…', true);
     const reader = new FileReader();
     reader.onerror = ()=>{ showTbStatus('Não foi possível ler o arquivo.', false); };
-    reader.onload = (e)=>{
+    reader.onload = async (e)=>{
       try{
-        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:false});
         const sheetName = wb.SheetNames.find(n=>/follow.?up/i.test(n)) || wb.SheetNames[0];
         const sheet = wb.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(sheet, {defval:null, raw:true});
@@ -1121,17 +1603,44 @@ function setupUpload(){
         resetCobFilters();
         refreshAll();
 
-        // Alteração 7 — grava a base para restauração automática
+        // Mantém cópia local de contingência e publica a base oficial compartilhada.
         const salvoEm = salvarUploadLocal(file.name);
+        let salvoCentral = null;
+        let erroCentral = '';
+
+        try{
+          salvoCentral = await salvarUploadCentral(file.name);
+          atualizarStatusBaseAdmin({
+            fileName: salvoCentral.fileName || file.name,
+            savedAt: salvoCentral.savedAt || salvoEm || Date.now(),
+            updatedBy: salvoCentral.updatedBy || ((window.TCAuth && window.TCAuth.getSessao()) || {}).email || null,
+            origem: 'central'
+          });
+        }catch(e){
+          erroCentral = e && e.message
+            ? e.message
+            : 'Não foi possível atualizar a base central.';
+          console.error('Falha ao salvar base central:', e);
+        }
 
         let msg = out.length + ' pedidos importados';
         if(skipped) msg += ', ' + skipped + ' ignorados (dados incompletos)';
         msg += '.';
         if(errors.length) msg += ' ' + errors.length + ' aviso(s) — ex.: ' + errors[0];
-        msg += salvoEm
-          ? ' Upload salvo em ' + fmtDataHoraBR(salvoEm) + ' — a base será restaurada automaticamente ao reabrir o painel.'
-          : ' Não foi possível salvar a base localmente (armazenamento indisponível): será necessário novo upload ao reabrir.';
-        showTbStatus(msg, true);
+
+        if(salvoCentral){
+          msg += ' Base central atualizada com sucesso para todos os usuários.';
+          if(salvoEm){
+            msg += ' Cópia local de contingência salva em ' + fmtDataHoraBR(salvoEm) + '.';
+          }
+        }else{
+          msg += ' Atenção: o painel deste navegador foi atualizado, mas a base central não foi publicada. ' + esc(erroCentral);
+          if(salvoEm){
+            msg += ' A cópia local de contingência foi preservada.';
+          }
+        }
+
+        showTbStatus(msg, !!salvoCentral);
       }catch(err){
         /* Etapa 4 · Alteração 26 — a mensagem pode conter NOMES DE COLUNA
            lidos do próprio arquivo (conteúdo não confiável): esc() antes de
@@ -1156,6 +1665,9 @@ function setupDownload(){
     const data = rows.map(r=>({
       'Número do Pedido': r.pedido,
       'Aglutinador': r.aglutinador,
+      // Etapa 4 · Alteração 19/22 — Perfil do Veículo acompanha a exportação,
+      // na mesma posição da tabela: entre AGLUTINADOR e TIPO DE PEDIDO.
+      'Perfil do Veículo': perfilVeiculo(r),
       // Alteração 02 (Etapa 3) — a nova coluna acompanha a exportação, na mesma
       // posição da tabela: entre AGLUTINADOR e PLANTA.
       'Tipo de Pedido': tipoPedido(r),
@@ -1524,7 +2036,7 @@ function fmtDataHoraRota(ms){
 }
 
 /* Seção 9 — MENSAGEM OPERACIONAL DA COLETA. Derivada exclusivamente de
-   statusJanela() (tolerância de 30 min, regra de janela, cálculo de atraso,
+   statusJanela() (tolerância atual de 0 min, regra de janela, cálculo de atraso,
    regras de chegada/saída e de finalização). Nenhuma regra nova é criada
    aqui: apenas a redação da frase que o operador lê. */
 function mensagemColeta(sj){
@@ -2205,6 +2717,20 @@ function tipoPedido(r){
   return v;
 }
 
+/* ==========================================================================
+   ETAPA 4 · ALTERAÇÕES 19 a 22 — PERFIL DO VEÍCULO
+   --------------------------------------------------------------------------
+   Acessor único do perfil do veículo, lido da base importada (campo
+   `veiculo_aglutinado`, mapeado por campoPerfilVeiculo() na leitura da
+   planilha — seção 21). Usado por ambas as tabelas (Monitoramento de
+   Coletas e Detalhamento dos Pedidos) e pelas respectivas exportações para
+   Excel, garantindo o mesmo valor em todas as telas. Campo vazio exibe
+   'NÃO INFORMADO' — nunca um perfil inventado. */
+function perfilVeiculo(r){
+  const v = (r && r.veiculo_aglutinado != null) ? String(r.veiculo_aglutinado).trim() : '';
+  return v || 'NÃO INFORMADO';
+}
+
 function currentDetailRows(){
   if(currentAgl) return filteredData().filter(r=>r.aglutinador===currentAgl);
   if(gFilters.pedido) return filteredData().slice(0,500);
@@ -2217,7 +2743,7 @@ function buildDetailTable(){
     .sort((a,b)=> (a.janela_iso ? new Date(a.janela_iso).getTime() : Infinity) - (b.janela_iso ? new Date(b.janela_iso).getTime() : Infinity));
   const tbody = document.querySelector('#detailTable tbody');
   if(!rows.length){
-    tbody.innerHTML = '<tr><td colspan="13" class="search-noresult">Nenhum pedido encontrado' + (gFilters.pedido ? ' para "'+gFilters.pedido+'"' : '') + '.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="search-noresult">Nenhum pedido encontrado' + (gFilters.pedido ? ' para "'+gFilters.pedido+'"' : '') + '.</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(r=>{
@@ -2232,6 +2758,7 @@ function buildDetailTable(){
     <tr>
       <td>${esc(r.pedido ?? '')}</td>
       <td>${esc(r.aglutinador ?? '')}</td>
+      <td class="col-perfil-veiculo">${esc(perfilVeiculo(r))}</td>
       <td class="col-tipo-pedido">${esc(tipoPedido(r) || '—')}</td>
       <td>${esc(normCampo(r.planta))}</td>
       <td>${esc(r.fornecedor ?? '')}</td>
@@ -2437,7 +2964,7 @@ const cobState = {
      Comparativo por Transportadora, Modal e Planta. */
   chartSel: { planta: null, modal: null, status: null, transp: null },
 };
-let msTransp, msData, msModal;
+let msTransp, msData, msModal, msPlanner, msPlanta;
 let cobChartStatusRef = null, cobChartPerfRef = null, cobChartModalRef = null;
 let cobChartPlantaRef = null;
 
@@ -2447,7 +2974,7 @@ function cssVar(name){
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/* Regra de STATUS (Etapa 3): tolerância de ±30min em torno da janela.
+/* Regra de STATUS (Etapa 3): tolerância atual de 0 min em torno da janela.
    Delegada para statusJanela() — ver utilitários centralizados na seção 03-A.
    Retorna: 'dentro' | 'antes' | 'atraso' | 'no_horario' | null. */
 function cobStatusJanela(r){
@@ -2644,11 +3171,15 @@ function cobFilteredData(){
   const selT = msTransp ? msTransp.getSelected() : null;
   const selD = msData ? msData.getSelected() : null;
   const selM = msModal ? msModal.getSelected() : null;
+  const selPlanner = msPlanner ? msPlanner.getSelected() : null;
+  const selPlanta = msPlanta ? msPlanta.getSelected() : null;
   const ped = cobState.pedido;
   const forn = cobState.fornecedor.toLowerCase();
   const cs = cobState.chartSel; // Alteração 5 — seleções por clique nos gráficos
   // Base já globalmente filtrada (KPIs do topo + filtros da aba 1): cumulativo
   return filteredData().filter(r =>
+    (!selPlanner || selPlanner.has(plannerDoFornecedor(r))) &&
+    (!selPlanta || selPlanta.has(r.planta)) &&
     (!ped  || String(r.pedido ?? '').includes(ped)) &&
     (!forn || (r.fornecedor || '').toLowerCase().includes(forn)) &&
     (!selT || selT.has(r.transportador)) &&
@@ -2788,6 +3319,8 @@ function populateCobMultiSelects(){
   msTransp.setOptions(transp);
   msData.setOptions(datas);
   msModal.setOptions(modais);
+  msPlanner.setOptions(opcoesPlanner());
+  msPlanta.setOptions(opcoesPlanta());
 }
 
 function resetCobFilters(){
@@ -2802,6 +3335,8 @@ function resetCobFilters(){
   if(msTransp) msTransp.clear();
   if(msData) msData.clear();
   if(msModal) msModal.clear();
+  if(msPlanner) msPlanner.clear();
+  if(msPlanta) msPlanta.clear();
   limparChartSel();   // Alteração 5 — remove também as seleções feitas por clique nos gráficos
   populateCobMultiSelects();
 }
@@ -2895,7 +3430,7 @@ function buildCobStrip(rows){
   /* Etapa 3 — o atraso agora usa o desvio da janela (chegada, ou horário
      atual de Brasília para pedidos sem chegada registrada). */
   /* Alteração 24 — mesma regra central: entram na estatística de atraso todos
-     os pedidos cujo desvio da janela ultrapassou a tolerância de +30 min
+     os pedidos cujo desvio da janela ultrapassou a tolerância configurada (atualmente 0 min)
      (chegada tardia registrada OU ainda sem chegada com prazo vencido). */
   const atrasos = rows.filter(r => statusJanela(r).atrasoOperacional);
   const mediaEl = document.getElementById('cobMediaAtraso');
@@ -3240,7 +3775,8 @@ function cobTableRows(){
       normCampo(r.planta).toLowerCase().includes(q) ||   // Alteração 1 — coluna Planta
       (r.fornecedor || '').toLowerCase().includes(q) ||
       (r.modal || '').toLowerCase().includes(q) ||
-      (r.aglutinador || '').toLowerCase().includes(q)
+      (r.aglutinador || '').toLowerCase().includes(q) ||
+      perfilVeiculo(r).toLowerCase().includes(q)     // Etapa 4 · Alteração 19/20 — nova coluna pesquisável
     );
   }
   const { sortKey, sortDir } = cobState;
@@ -3263,7 +3799,7 @@ function buildCobTable(){
 
   const tbody = document.querySelector('#cobTable tbody');
   if(!pageRows.length){
-    tbody.innerHTML = '<tr><td colspan="15" class="search-noresult">Nenhum pedido encontrado com os filtros atuais.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16" class="search-noresult">Nenhum pedido encontrado com os filtros atuais.</td></tr>';
   } else {
     tbody.innerHTML = pageRows.map(r => {
       /* Alteração 24 — a etiqueta de status vem da MESMA classificação usada
@@ -3273,18 +3809,18 @@ function buildCobTable(){
       let extra = '', tip = def.label;
       if(sj.code === 'atraso'){
         if(sj.desvioMin != null && sj.desvioMin > 0) extra = ' · ' + fmtHoras(sj.desvioMin);
-        tip = 'Sem Chegada Origem registrada — prazo (janela + 30 min) já vencido; baseado no horário atual de Brasília';
+        tip = 'Sem Chegada Origem registrada — horário da janela já vencido; baseado no horário atual de Brasília';
       } else if(sj.code === 'dentro'){
-        tip = 'Sem Chegada Origem registrada — ainda dentro do prazo (janela + 30 min); baseado no horário atual de Brasília';
+        tip = 'Sem Chegada Origem registrada — ainda dentro do prazo (até o horário da janela); baseado no horário atual de Brasília';
       } else if(sj.code === 'iniciado'){
         tip = 'Chegada Origem registrada e Saída Origem pendente';
       } else if(sj.code === 'fin_prazo'){
-        tip = 'Finalizado Dentro do Prazo — chegada entre janela − 30 min e janela + 30 min';
+        tip = 'Finalizado Dentro do Prazo — chegada até o horário da janela';
       } else if(sj.code === 'fin_atraso'){
-        tip = 'Finalizado com Atraso — chegada após janela + 30 min';
+        tip = 'Finalizado com Atraso — chegada após o horário da janela';
         if(sj.desvioMin != null && sj.desvioMin > 0) extra = ' · ' + fmtHoras(sj.desvioMin);
       } else if(sj.code === 'fin_antes'){
-        tip = 'Finalizado Antecipado — chegada anterior a janela − 30 min';
+        tip = 'Finalizado Antecipado — chegada anterior ao horário da janela';
       }
       const statusHtml = '<span class="cob-badge ' + def.badge + '" title="' + esc(tip) + '">' +
         def.ico + ' ' + esc(def.curto) + extra + (sj.semChegada && sj.code ? ' ⏱' : '') + '</span>';
@@ -3292,6 +3828,7 @@ function buildCobTable(){
       <tr>
         <td>${esc(r.pedido ?? '')}</td>
         <td>${esc(r.aglutinador || '—')}</td>
+        <td>${esc(perfilVeiculo(r))}</td>
         <td>${esc(normCampo(r.transportador))}</td>
         <td>${esc(normCampo(r.planta))}</td>
         <td>${esc(r.fornecedor || '—')}</td>
@@ -3445,6 +3982,9 @@ function exportRelatorioCobrancas(){
     return {
       'Pedido': r.pedido,
       'Aglutinador': r.aglutinador || '',
+      // Etapa 4 · Alteração 20/22 — mesma posição da tabela: entre
+      // AGLUTINADOR e TRANSPORTADORA.
+      'Perfil do Veículo': perfilVeiculo(r),
       'Transportadora': normCampo(r.transportador),
       'Planta': normCampo(r.planta),          // Alteração 1 — mesma posição da tabela
       'Fornecedor': r.fornecedor || '',
@@ -3518,6 +4058,8 @@ function exportRelatorioCobrancas(){
 /* ---- Montagem única do painel ---- */
 
 function setupCobrancas(){
+  msPlanner = createMultiSelect('msPlanner', 'Todos', { onChange: cobFiltersChanged });
+  msPlanta = createMultiSelect('msPlanta', 'Todas', { onChange: cobFiltersChanged });
   msTransp = createMultiSelect('msTransp', 'Todas', { onChange: cobFiltersChanged });
   msData   = createMultiSelect('msData',   'Todas', { onChange: cobFiltersChanged, range: true });
   msModal  = createMultiSelect('msModal',  'Todos', { onChange: cobFiltersChanged });
@@ -3643,35 +4185,57 @@ ativarAba((location.hash || '').replace('#', ''));
    com sessão válida repete o fluxo normalmente; segundo evento é ignorado.
    ══════════════════════════════════════════════════════════════════════════ */
 let _tcInicializado = false;
-function inicializarTorreDeControle(){
+async function inicializarTorreDeControle(){
   if(_tcInicializado) return;
   _tcInicializado = true;
 
-restaurarUploadSalvo();   // Alteração 7 — carrega o último upload válido, se existir
-setupGlobalFilters();
-setupAglList();
-setupUpload();
-setupDownload();
-setupCobrancas();
+  // A base central é a fonte oficial. O localStorage é somente contingência.
+  let cacheAtivo = null;
+  try{
+    cacheAtivo = await carregarUploadCentral();
+  }catch(e){
+    console.error('Falha ao carregar base central; usando contingência local quando disponível:', e);
+  }
 
-/* Alteração 8.3 — atualização automática a cada minuto: recalcula somente os
-   componentes afetados pela regra do horário atual (cards, tabelas, gráficos
-   e rankings da aba Cobranças), sem recarregar a página nem reconstruir o
-   mapa/árvore (operações pesadas que não dependem do relógio). */
-setInterval(() => {
-  recalcularAgora();
-  buildDetailTable();
-  buildCobrancas();   // Alteração 3 — buildCobrancas() atualiza também os KPIs do topo
-}, 60000);
-
-
-// abre já com um aglutinador relevante: o primeiro (em ordem alfabética) com pedidos em atraso
-const aglComAtraso = [...new Set(RAW.filter(r=>r.atraso_chegada_min!=null && r.atraso_chegada_min>0).map(r=>r.aglutinador))].sort()[0];
-if(aglComAtraso){
-  currentAgl = aglComAtraso;
+  if(!cacheAtivo){
+    cacheAtivo = restaurarUploadSalvo();
+  }
+if(cacheAtivo && cacheAtivo.origem === 'central'){
+  registrarVersaoCentral(cacheAtivo);
 }
-atualizarStatusBaseAdmin(null);   // estado inicial da faixa administrativa
-refreshAll();
+  setupGlobalFilters();
+  setupAglList();
+  setupUpload();
+  setupCarteiraUpload();
+  setupDownload();
+  setupCobrancas();
+
+  /* Alteração 8.3 — atualização automática a cada minuto: recalcula somente os
+     componentes afetados pela regra do horário atual (cards, tabelas, gráficos
+     e rankings da aba Cobranças), sem recarregar a página nem reconstruir o
+     mapa/árvore (operações pesadas que não dependem do relógio). */
+  setInterval(() => {
+    recalcularAgora();
+    buildDetailTable();
+    buildCobrancas();   // Alteração 3 — buildCobrancas() atualiza também os KPIs do topo
+  }, 60000);
+iniciarSincronizacaoCentral();
+  iniciarSincronizacaoCarteira();
+  // abre já com um aglutinador relevante: o primeiro (em ordem alfabética) com pedidos em atraso
+  const aglComAtraso = [...new Set(
+    RAW.filter(r => statusJanela(r).categoria === 'atraso')
+       .map(r => r.aglutinador)
+       .filter(Boolean)
+  )].sort((a,b) => String(a).localeCompare(String(b), 'pt-BR'))[0];
+  if(aglComAtraso){
+    currentAgl = aglComAtraso;
+  }
+
+  if(!cacheAtivo){
+    atualizarStatusBaseAdmin(null);
+  }
+  refreshAll();
+  carregarCarteiraInicial(); // Consulta auxiliar independente da inicialização da base de coletas.
 }
 
 /* Disparo único, autorizado pela camada de autenticação (auth-client.js). */
