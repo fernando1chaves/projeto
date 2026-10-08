@@ -156,6 +156,13 @@ function hasGE(r){
 }
 function hasNoGE(r){ return !hasGE(r); }
 
+/* Código exibido na tabela e no Excel; os indicadores mantêm tem_ge/hasGE. */
+function codigoGE(r){
+  const v = r && r.ge;
+  const codigo = v == null ? '' : String(v).trim();
+  return GE_TEXTO_SEM.has(codigo.toUpperCase()) ? 'SEM GE' : codigo;
+}
+
 /* ---- Alteração 14 — regra única de Não Conformidade ----
    Campo esperado: STATUS NÃO CONFORME. A base entrega `nao_conforme`
    (booleano) e `status_nc` (texto livre, ex.: "FRETE MORTO"). O texto é
@@ -1496,6 +1503,10 @@ function transformSheetRows(json){
       modal: row['TIPO'] || null,
       ge: (row['GE']!=null && String(row['GE']).trim()!=='') ? String(row['GE']).trim() : null,
       tem_ge: row['GE']!=null && String(row['GE']).trim()!=='',
+      mensagem_ge: (() => {
+        const v = valorCampoPlanilha(row, ['MENSAGEM GE']);
+        return v == null ? '' : String(v).trim();
+      })(),
       status_nc: (() => {
         const v = valorCampoPlanilha(row, [
           'STATUS NÃO CONFORME',
@@ -3758,6 +3769,10 @@ function cobSortValue(r, key){
   }
   if(key === '_desvioJanela') return statusJanela(r).desvioMin;
   if(key === '_statusNc') return r.nao_conforme == null ? 0 : (r.nao_conforme ? 2 : 1);
+  if(key === 'ge'){
+    const codigo = codigoGE(r);
+    return codigo === 'SEM GE' ? null : codigo.toLowerCase();
+  }
   if(key === 'tem_ge' || key === 'tem_nf') return r[key] ? 1 : 0;
   if(key === 'planta') return normCampo(r.planta).toLowerCase();  // Alteração 1 — ordena pelo valor exibido
   const v = r[key];
@@ -3799,7 +3814,7 @@ function buildCobTable(){
 
   const tbody = document.querySelector('#cobTable tbody');
   if(!pageRows.length){
-    tbody.innerHTML = '<tr><td colspan="16" class="search-noresult">Nenhum pedido encontrado com os filtros atuais.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="17" class="search-noresult">Nenhum pedido encontrado com os filtros atuais.</td></tr>';
   } else {
     tbody.innerHTML = pageRows.map(r => {
       /* Alteração 24 — a etiqueta de status vem da MESMA classificação usada
@@ -3822,6 +3837,7 @@ function buildCobTable(){
       } else if(sj.code === 'fin_antes'){
         tip = 'Finalizado Antecipado — chegada anterior ao horário da janela';
       }
+      const ge = codigoGE(r);
       const statusHtml = '<span class="cob-badge ' + def.badge + '" title="' + esc(tip) + '">' +
         def.ico + ' ' + esc(def.curto) + extra + (sj.semChegada && sj.code ? ' ⏱' : '') + '</span>';
       return `
@@ -3839,9 +3855,10 @@ function buildCobTable(){
         <td>${statusHtml}</td>
         <td>${fmtPermanencia(r.permanencia_min)}</td>
         <td>${desvioCellHtml(r)}</td>
-        <td>${r.tem_ge ? '<span class="cob-badge ok">SIM</span>' : '<span class="cob-badge bad">NÃO</span>'}</td>
+        <td><span class="cob-badge ${ge === 'SEM GE' ? 'bad' : 'ok'}">${esc(ge)}</span></td>
         <td>${r.tem_nf ? '<span class="cob-badge ok">SIM' + (r.qtde_nf ? ' (' + r.qtde_nf + ')' : '') + '</span>' : '<span class="cob-badge bad">NÃO</span>'}</td>
         <td>${ncCellHtml(r)}</td>
+        <td class="cob-ge-message">${esc(r.mensagem_ge ?? '')}</td>
       </tr>`;
     }).join('');
   }
@@ -3996,11 +4013,12 @@ function exportRelatorioCobrancas(){
       'Atraso (h)': sj.atrasoOperacional && sj.desvioMin != null ? Math.round(sj.desvioMin/60*10)/10 : '',
       'Permanência': fmtPermanencia(r.permanencia_min),
       'Desvio da Janela': fmtDesvio(sj.desvioMin),
-      'GE': r.tem_ge ? 'SIM' : 'NÃO',
+      'GE': codigoGE(r),
       'NF': r.tem_nf ? 'SIM' : 'NÃO',
       'Qtde NF': r.qtde_nf || 0,
-      'Status Não Conforme': ncTexto(r),
       'Motivo Não Conformidade': r.motivo_nc || '',
+      'Status Não Conforme': ncTexto(r),
+      'MENSAGEM GE': r.mensagem_ge ?? '',
     };
   });
 
@@ -4036,7 +4054,12 @@ function exportRelatorioCobrancas(){
     if(ws[hRef]) ws[hRef].s = estiloHeader;
     for(let r = 1; r <= data.length; r++){
       const ref = XLSX.utils.encode_cell({ r, c });
-      if(ws[ref]) ws[ref].s = (r % 2 === 0) ? estiloZebra : estiloLinha;
+      if(ws[ref]){
+        const estilo = (r % 2 === 0) ? estiloZebra : estiloLinha;
+        ws[ref].s = headerKeys[c] === 'MENSAGEM GE'
+          ? Object.assign({}, estilo, { alignment: Object.assign({}, estilo.alignment, { wrapText: true }) })
+          : estilo;
+      }
     }
   }
 

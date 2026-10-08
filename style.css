@@ -995,6 +995,12 @@ footer { text-align: center; color: var(--sub); font-size: 11px; margin-top: 20p
 #cobTable th.sorted-asc::after { content: ' ▲'; font-size: 9px; }
 #cobTable th.sorted-desc::after { content: ' ▼'; font-size: 9px; }
 #cobTable td { white-space: nowrap; }
+#cobTable td.cob-ge-message {
+  min-width: 220px;
+  max-width: 340px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 .cob-badge {
   display: inline-block; padding: 2px 9px; border-radius: 10px;
