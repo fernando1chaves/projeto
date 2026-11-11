@@ -11,11 +11,19 @@
   functions = "netlify/functions"
 
 # Inclui o SDK do Blobs nos pacotes das quatro funções de armazenamento.
-[functions."data-{load,save}"]
+[functions."data-load"]
   node_bundler = "esbuild"
   external_node_modules = ["@netlify/blobs"]
 
-[functions."carteira-{load,save}"]
+[functions."data-save"]
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs"]
+
+[functions."carteira-load"]
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs"]
+
+[functions."carteira-save"]
   node_bundler = "esbuild"
   external_node_modules = ["@netlify/blobs"]
 
