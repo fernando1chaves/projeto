@@ -1,9 +1,10 @@
-'use strict';
+import lib from './_auth-lib.js';
+import dataStore from './data-store.js';
+import { storageHandler } from './_storage-handler.mjs';
 
-const lib = require('./_auth-lib');
-const { salvarBase } = require('./data-store');
+const { salvarBase } = dataStore;
 
-exports.handler = async (event) => {
+export default storageHandler(async (event) => {
   if (event.httpMethod !== 'POST') {
     return lib.json(405, {
       ok: false,
@@ -40,7 +41,7 @@ exports.handler = async (event) => {
   let corpo;
 
   try {
-    corpo = JSON.parse(event.body || '{}');
+    corpo = JSON.parse((await event.readBody()) || '{}');
   } catch (erro) {
     return lib.json(400, {
       ok: false,
@@ -89,4 +90,4 @@ exports.handler = async (event) => {
       erro: 'Não foi possível salvar a base oficial.'
     });
   }
-};
+});
