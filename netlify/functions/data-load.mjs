@@ -1,9 +1,10 @@
-'use strict';
+import lib from './_auth-lib.js';
+import dataStore from './data-store.js';
+import { storageHandler } from './_storage-handler.mjs';
 
-const lib = require('./_auth-lib');
-const { carregarBase } = require('./data-store');
+const { carregarBase } = dataStore;
 
-exports.handler = async (event) => {
+export default storageHandler(async (event) => {
   if (event.httpMethod !== 'GET') {
     return lib.json(405, {
       ok: false,
@@ -52,4 +53,4 @@ exports.handler = async (event) => {
       erro: 'Não foi possível carregar a base oficial.'
     });
   }
-};
+});
