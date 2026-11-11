@@ -10,6 +10,15 @@
   publish = "."
   functions = "netlify/functions"
 
+# Inclui o SDK do Blobs nos pacotes das quatro funções de armazenamento.
+[functions."data-{load,save}"]
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs"]
+
+[functions."carteira-{load,save}"]
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs"]
+
 # /api/* → functions (mesma origem: o cookie HttpOnly SameSite=Strict flui
 # naturalmente, sem CORS e sem expor o endpoint interno nas chamadas do app)
 # ============================================================
