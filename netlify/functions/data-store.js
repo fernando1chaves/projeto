@@ -3,36 +3,9 @@
 const STORE_NAME = 'torre-controle-dados';
 const BASE_KEY = 'followup-base-atual';
 
-let _getStore = null;
-
 async function getDataStore() {
-  if (!_getStore) {
-    const mod = await import('@netlify/blobs');
-    _getStore = mod.getStore;
-  }
-
-  const siteID =
-    process.env.NETLIFY_SITE_ID ||
-    process.env.SITE_ID ||
-    '';
-
-  const token =
-    process.env.NETLIFY_BLOBS_TOKEN ||
-    process.env.NETLIFY_AUTH_TOKEN ||
-    '';
-
-  if (!siteID || !token) {
-    throw new Error(
-      'Configuração do Netlify Blobs ausente: NETLIFY_SITE_ID ou NETLIFY_BLOBS_TOKEN não definido.'
-    );
-  }
-
-  return _getStore({
-    name: STORE_NAME,
-    consistency: 'strong',
-    siteID,
-    token
-  });
+  const { getStore } = await import('@netlify/blobs');
+  return getStore(STORE_NAME, { consistency: 'strong' });
 }
 
 async function salvarBase(payload) {

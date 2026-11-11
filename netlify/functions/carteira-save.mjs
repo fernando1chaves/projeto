@@ -1,14 +1,17 @@
-'use strict';
-const lib = require('./_auth-lib');
-const { validar } = require('../../carteira');
-const { salvarCarteira } = require('./carteira-store');
-exports.handler = async event => {
+import lib from './_auth-lib.js';
+import carteira from '../../carteira.js';
+import carteiraStore from './carteira-store.js';
+import { storageHandler } from './_storage-handler.mjs';
+
+const { validar } = carteira;
+const { salvarCarteira } = carteiraStore;
+export default storageHandler(async event => {
   if(event.httpMethod !== 'POST') return lib.json(405, { ok: false, erro: 'Método não permitido.' });
   const sessao = lib.sessaoDoEvento(event, process.env);
   if(!sessao) return lib.json(401, { ok: false, erro: 'Sessão inexistente ou expirada.' });
   if(sessao.role !== 'ADMINISTRADOR') return lib.json(403, { ok: false, erro: 'Somente o Administrador pode atualizar a carteira.' });
   let body;
-  try { body = JSON.parse(event.body || '{}'); }
+  try { body = JSON.parse((await event.readBody()) || '{}'); }
   catch(e){ return lib.json(400, { ok: false, erro: 'JSON inválido.' }); }
   let rows;
   try { rows = validar(body && body.rows); }
@@ -21,4 +24,4 @@ exports.handler = async event => {
     console.error('CARTEIRA_SAVE_ERRO', e);
     return lib.json(500, { ok: false, erro: 'Não foi possível salvar a carteira compartilhada.' });
   }
-};
+});

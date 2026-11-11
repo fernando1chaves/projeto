@@ -3,10 +3,7 @@ const STORE_NAME = 'torre-controle-carteira';
 const CARTEIRA_KEY = 'carteira-fornecedor-atual';
 async function getCarteiraStore(){
   const { getStore } = await import('@netlify/blobs');
-  const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID || '';
-  const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.NETLIFY_AUTH_TOKEN || '';
-  if(!siteID || !token) throw new Error('Configuração do Netlify Blobs ausente.');
-  return getStore({ name: STORE_NAME, consistency: 'strong', siteID, token });
+  return getStore(STORE_NAME, { consistency: 'strong' });
 }
 async function salvarCarteira(payload){
   const store = await getCarteiraStore();
