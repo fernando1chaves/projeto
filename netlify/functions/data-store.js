@@ -1,16 +1,15 @@
 'use strict';
 
-const { getStore } = require('@netlify/blobs');
-
 const STORE_NAME = 'torre-controle-dados';
 const BASE_KEY = 'followup-base-atual';
 
-function getDataStore() {
+async function getDataStore() {
+  const { getStore } = await import('@netlify/blobs');
   return getStore(STORE_NAME, { consistency: 'strong' });
 }
 
 async function salvarBase(payload) {
-  const store = getDataStore();
+  const store = await getDataStore();
 
   const registro = {
     version: 1,
@@ -26,7 +25,7 @@ async function salvarBase(payload) {
 }
 
 async function carregarBase() {
-  const store = getDataStore();
+  const store = await getDataStore();
 
   const registro = await store.get(BASE_KEY, {
     type: 'json',
