@@ -1,7 +1,9 @@
-'use strict';
-const lib = require('./_auth-lib');
-const { carregarCarteira } = require('./carteira-store');
-exports.handler = async event => {
+import lib from './_auth-lib.js';
+import carteiraStore from './carteira-store.js';
+import { storageHandler } from './_storage-handler.mjs';
+
+const { carregarCarteira } = carteiraStore;
+export default storageHandler(async event => {
   if(event.httpMethod !== 'GET') return lib.json(405, { ok: false, erro: 'Método não permitido.' });
   if(!lib.sessaoDoEvento(event, process.env)) return lib.json(401, { ok: false, erro: 'Sessão inexistente ou expirada.' });
   try{
@@ -12,4 +14,4 @@ exports.handler = async event => {
     console.error('CARTEIRA_LOAD_ERRO', e);
     return lib.json(500, { ok: false, erro: 'Não foi possível carregar a carteira compartilhada.' });
   }
-};
+});
